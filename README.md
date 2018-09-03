@@ -83,3 +83,4 @@ let circuit_breaker = CircuitBreaker::builder()
   .build();
 
 ```
+
