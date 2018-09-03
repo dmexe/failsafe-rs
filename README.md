@@ -1,6 +1,7 @@
-# Resilience
+# Failsafe
 
-------
+[![Сrate](https://img.shields.io/crates/v/failsafe.svg)](https://crates.io/crates/failsafe)
+[![Вocumentation](https://docs.rs/failsafe/badge.svg)](https://docs.rs/failsafe)
 [![CircleCI](https://circleci.com/gh/dmexe/failsafe-rs.svg?style=svg)](https://circleci.com/gh/dmexe/failsafe-rs)
 
 A circuit breaker implementation which used to detect failures and encapsulates the logic of preventing a 
@@ -8,6 +9,7 @@ failure from constantly recurring, during maintenance, temporary external system
 system difficulties.
 
 * [https://martinfowler.com/bliki/CircuitBreaker.html](https://martinfowler.com/bliki/CircuitBreaker.html)
+* [Read documentation](https://docs.rs/failsafe/0.1.0/failsafe)
 
 # Features
 
