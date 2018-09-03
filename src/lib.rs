@@ -23,7 +23,7 @@
 //!
 //! // Create a circuit breaker which configured by reasonable default backoff and
 //! // failure accrual policy.
-//! let circuit_breaker = CircuitBreaker::default();
+//! let circuit_breaker = CircuitBreaker::builder().build();
 //!
 //! // In cycle call the function, after some iterations the circuit breaker will
 //! // be in a open state and reject calls.
@@ -45,12 +45,10 @@
 #![deny(missing_docs)]
 #![cfg_attr(test, deny(warnings))]
 
-extern crate futures;
+extern crate futures as lib_futures;
 extern crate rand;
-extern crate tokio_timer;
-
-#[cfg(test)]
 extern crate tokio_executor;
+extern crate tokio_timer;
 
 mod circuit_breaker;
 mod ema;
@@ -60,6 +58,7 @@ mod state_machine;
 
 pub mod backoff;
 pub mod failure_accrual_policy;
+pub mod futures;
 
 #[cfg(test)]
 mod mock_clock;
