@@ -1,0 +1,17 @@
+#!/bin/bash
+
+set -e
+
+CACHE_KEY=${1:-.cache-key}
+CARGO=${CARGO:-cargo}
+RUSTC=${RUSTC:-rustc}
+
+GREEN='\033[0;32m'
+NC='\033[0m' # No Color
+
+echo -e "${GREEN}${RUSTC} --version --verbose${NC}"
+rustc --version --verbose | tee ${CACHE_KEY}
+echo
+
+echo -e "${GREEN}${CARGO} --version --verbose${NC}"
+${CARGO} --version --verbose | tee ${CACHE_KEY}

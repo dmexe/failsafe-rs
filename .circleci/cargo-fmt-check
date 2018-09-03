@@ -1,0 +1,33 @@
+#!/bin/bash
+
+set -e
+
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+CARGO=${CARGO:-cargo}
+
+function is_nightly {
+  (rustc --version | grep -q nightly && echo "yes") || echo "no"
+}
+
+if [ "x$(is_nightly)" == "xno" ] ; then
+  echo -e "${GREEN}Skip, there isn't nightly${NC}"
+  exit 0
+fi
+
+rustfmt --version > /dev/null 2>&1 || (
+  echo -e "${GREEN}rustup component add rustfmt-preview${NC}"
+  rustup component add rustfmt-preview
+  echo
+)
+
+echo -e "${GREEN}rustfmt --version${NC}"
+rustfmt --version
+echo
+
+echo -e "${GREEN}${CARGO} fmt -- --check${NC}"
+${CARGO} fmt -- --check
+
+echo -e "${YELLOW}OK${NC}"
