@@ -1,23 +1,25 @@
 /// Evaluates if an error should be recorded as a failure and thus increase the failure rate.
-pub trait FailurePredicate<E> {
+pub trait FailurePredicate<ERROR> {
     /// Must return `true` if the error should count as a failure, otherwise it must return `false`.
-    fn is_err(&self, err: E) -> bool;
+    fn is_err(&self, err: &ERROR) -> bool;
 }
 
-impl<E, F> FailurePredicate<E> for F
+impl<F, ERROR> FailurePredicate<ERROR> for F
 where
-    F: Fn(E) -> bool,
+    F: Fn(&ERROR) -> bool,
 {
-    fn is_err(&self, err: E) -> bool {
+    #[inline]
+    fn is_err(&self, err: &ERROR) -> bool {
         self(err)
     }
 }
 
-/// Classify all error kinds as failures.
-struct All;
+#[derive(Debug, Copy, Clone)]
+pub struct Any;
 
-impl<E> FailurePredicate<E> for All {
-    fn is_err(&self, _: E) -> bool {
+impl<ERROR> FailurePredicate<ERROR> for Any {
+    #[inline]
+    fn is_err(&self, _err: &ERROR) -> bool {
         true
     }
 }
@@ -28,15 +30,9 @@ mod tests {
 
     #[test]
     fn use_func_as_failure_predicate() {
-        fn is_err(err: bool) -> bool {
-            err
+        fn is_err(err: &bool) -> bool {
+            *err
         }
-
-        assert!(FailurePredicate::is_err(&is_err, true));
-    }
-
-    #[test]
-    fn all_is_all() {
-        assert!(All.is_err(()))
+        assert!(FailurePredicate::is_err(&is_err, &true));
     }
 }

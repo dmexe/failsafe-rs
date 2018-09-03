@@ -3,8 +3,7 @@ use std::time::{Duration, Instant};
 
 use tokio_timer::clock;
 
-use super::backoff;
-use super::failure_accrual::{self, ConsecutiveFailures, EmaSuccessRate, FailureAccrualPolicy};
+use super::failure_accrual_policy::FailureAccrualPolicy;
 
 /// States of the state machine.
 #[derive(Clone, Debug)]
@@ -34,14 +33,14 @@ pub enum State {
 /// breaker receives a failure on the next call, the state will change back to `Open`. Otherwise
 /// it changes to `Closed`.
 #[derive(Debug)]
-pub struct StateMachine<P, I> {
-    policy: P,
-    instrumentation: I,
+pub struct StateMachine<POLICY, INSTRUMENT> {
+    failure_accrual_policy: POLICY,
+    instrument: INSTRUMENT,
     state: State,
 }
 
 /// Consumes the state machine events. May used for metrics and/or logs.
-pub trait Instrumentation {
+pub trait Instrument {
     /// Calls when state machine reject a call.
     fn on_call_rejected(&self);
 
@@ -57,9 +56,9 @@ pub trait Instrumentation {
 
 /// An instrumentation which does noting.
 #[derive(Debug)]
-pub struct NoopInstrumentation;
+pub struct NoopInstrument;
 
-impl Instrumentation for NoopInstrumentation {
+impl Instrument for NoopInstrument {
     fn on_call_rejected(&self) {}
 
     fn on_open(&self, _: &Duration) {}
@@ -87,43 +86,17 @@ impl Display for State {
     }
 }
 
-impl<P> StateMachine<P, NoopInstrumentation> {
-    /// Creates a new state machine with given failure policy and `NoopInstrumentation`.
-    pub fn new(policy: P) -> Self {
-        StateMachine {
-            policy,
-            instrumentation: NoopInstrumentation,
-            state: State::Closed,
-        }
-    }
-}
-
-impl<P, I> StateMachine<P, I>
+impl<POLICY, INSTRUMENT> StateMachine<POLICY, INSTRUMENT>
 where
-    P: FailureAccrualPolicy,
-    I: Instrumentation,
+    POLICY: FailureAccrualPolicy,
+    INSTRUMENT: Instrument,
 {
-    /// Add an instrumentation for this circuit breaker.
-    pub fn with_instrumentation<T>(self, instrumentation: T) -> StateMachine<P, T>
-    where
-        T: Instrumentation,
-    {
+    /// Creates a new state machine with given failure policy and instrument.
+    pub fn new(failure_accrual_policy: POLICY, instrument: INSTRUMENT) -> Self {
         StateMachine {
-            instrumentation,
-            policy: self.policy,
-            state: self.state,
-        }
-    }
-
-    /// Add a failure policy for this circuit breaker.
-    pub fn with_policy<T>(self, policy: T) -> StateMachine<T, I>
-    where
-        T: FailureAccrualPolicy,
-    {
-        StateMachine {
-            policy,
-            instrumentation: self.instrumentation,
-            state: self.state,
+            failure_accrual_policy,
+            instrument,
+            state: State::Closed,
         }
     }
 
@@ -137,7 +110,7 @@ where
                     self.transit_to_half_open(delay);
                     return true;
                 }
-                self.instrumentation.on_call_rejected();
+                self.instrument.on_call_rejected();
                 false
             }
         }
@@ -150,7 +123,7 @@ where
         if let State::HalfOpen(_) = self.state {
             self.reset();
         }
-        self.policy.record_success()
+        self.failure_accrual_policy.record_success()
     }
 
     /// Records a failed call.
@@ -159,7 +132,7 @@ where
     pub fn on_error(&mut self) {
         match self.state {
             State::Closed => {
-                if let Some(delay) = self.policy.mark_dead_on_failure() {
+                if let Some(delay) = self.failure_accrual_policy.mark_dead_on_failure() {
                     self.transit_to_open(delay);
                 }
             }
@@ -167,7 +140,7 @@ where
                 // Pick up the next open state's delay from the policy, if policy returns Some(_)
                 // use it, otherwise reuse the delay from the current state.
                 let delay = self
-                    .policy
+                    .failure_accrual_policy
                     .mark_dead_on_failure()
                     .unwrap_or(delay_in_half_open);
                 self.transit_to_open(delay);
@@ -180,37 +153,20 @@ where
     #[inline]
     pub fn reset(&mut self) {
         self.state = State::Closed;
-        self.policy.revived();
-        self.instrumentation.on_closed();
+        self.failure_accrual_policy.revived();
+        self.instrument.on_closed();
     }
 
     #[inline]
     fn transit_to_half_open(&mut self, delay: Duration) {
         self.state = State::HalfOpen(delay);
-        self.instrumentation.on_half_open();
+        self.instrument.on_half_open();
     }
 
     #[inline]
     fn transit_to_open(&mut self, delay: Duration) {
         let until = clock::now() + delay;
         self.state = State::Open(until, delay);
-        self.instrumentation.on_open(&delay);
-    }
-}
-
-impl Default
-    for StateMachine<
-        failure_accrual::OrElse<
-            EmaSuccessRate<backoff::EqualJittered>,
-            ConsecutiveFailures<backoff::EqualJittered>,
-        >,
-        NoopInstrumentation,
-    >
-{
-    /// Creates a new state machine configured with default
-    /// backoff strategy and failure accrual policy.
-    fn default() -> Self {
-        let policy = EmaSuccessRate::default().or_else(ConsecutiveFailures::default());
-        StateMachine::new(policy)
+        self.instrument.on_open(&delay);
     }
 }

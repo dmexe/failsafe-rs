@@ -62,13 +62,13 @@ pub trait FailureAccrualPolicy {
 /// # Panics
 ///
 /// When `required_success_rate` isn't in `[0.0, 0.1]` interval.
-pub fn ema_success_rate<B>(
+pub fn success_rate_over_time_window<BACKOFF>(
     required_success_rate: f64,
     window: Duration,
-    backoff: B,
-) -> EmaSuccessRate<B>
+    backoff: BACKOFF,
+) -> SuccessRateOverTimeWindow<BACKOFF>
 where
-    B: Iterator<Item = Duration> + Clone,
+    BACKOFF: Iterator<Item = Duration> + Clone,
 {
     assert!(
         required_success_rate >= 0.0 && required_success_rate <= 1.0,
@@ -78,7 +78,7 @@ where
 
     let window_millis = window.as_secs() * MILLIS_PER_SECOND;
 
-    EmaSuccessRate {
+    SuccessRateOverTimeWindow {
         required_success_rate,
         ema: Ema::new(window_millis),
         now: clock::now(),
@@ -95,9 +95,12 @@ where
 /// * `num_failures` - number of consecutive failures.
 /// * `backoff` - stream of durations to use for the next duration
 ///   returned from `mark_dead_on_failure`
-pub fn consecutive_failures<B>(num_failures: u32, backoff: B) -> ConsecutiveFailures<B>
+pub fn consecutive_failures<BACKOFF>(
+    num_failures: u32,
+    backoff: BACKOFF,
+) -> ConsecutiveFailures<BACKOFF>
 where
-    B: Iterator<Item = Duration> + Clone,
+    BACKOFF: Iterator<Item = Duration> + Clone,
 {
     ConsecutiveFailures {
         num_failures,
@@ -107,11 +110,11 @@ where
     }
 }
 
-impl Default for EmaSuccessRate<backoff::EqualJittered> {
+impl Default for SuccessRateOverTimeWindow<backoff::EqualJittered> {
     fn default() -> Self {
         let backoff = backoff::equal_jittered(Duration::from_secs(10), Duration::from_secs(300));
         let window = Duration::from_secs(DEFAULT_SUCCESS_RATE_WINDOW_SECONDS);
-        ema_success_rate(DEFAULT_SUCCESS_RATE_THRESHOLD, window, backoff)
+        success_rate_over_time_window(DEFAULT_SUCCESS_RATE_THRESHOLD, window, backoff)
     }
 }
 
@@ -126,23 +129,23 @@ impl Default for ConsecutiveFailures<backoff::EqualJittered> {
 /// rate over a time window. A moving average is used so the success rate
 /// calculation is biased towards more recent requests.
 #[derive(Debug)]
-pub struct EmaSuccessRate<B> {
+pub struct SuccessRateOverTimeWindow<BACKOFF> {
     required_success_rate: f64,
     ema: Ema,
     now: Instant,
     window_millis: u64,
-    backoff: B,
-    fresh_backoff: B,
+    backoff: BACKOFF,
+    fresh_backoff: BACKOFF,
 }
 
-impl<B> EmaSuccessRate<B>
+impl<BACKOFF> SuccessRateOverTimeWindow<BACKOFF>
 where
-    B: Clone,
+    BACKOFF: Clone,
 {
     /// Returns seconds since instance was created.
     fn elapsed_millis(&self) -> u64 {
         let diff = clock::now() - self.now;
-        (diff.as_secs() * MILLIS_PER_SECOND) + (diff.subsec_millis() as u64)
+        (diff.as_secs() * MILLIS_PER_SECOND) + u64::from(diff.subsec_millis())
     }
 
     /// We can trigger failure accrual if the `window` has passed, success rate is below
@@ -152,9 +155,9 @@ where
     }
 }
 
-impl<B> FailureAccrualPolicy for EmaSuccessRate<B>
+impl<BACKOFF> FailureAccrualPolicy for SuccessRateOverTimeWindow<BACKOFF>
 where
-    B: Iterator<Item = Duration> + Clone,
+    BACKOFF: Iterator<Item = Duration> + Clone,
 {
     #[inline]
     fn record_success(&mut self) {
@@ -185,16 +188,16 @@ where
 
 /// A policy based on a maximum number of consecutive failure
 #[derive(Debug)]
-pub struct ConsecutiveFailures<B> {
+pub struct ConsecutiveFailures<BACKOFF> {
     num_failures: u32,
     consecutive_failures: u32,
-    backoff: B,
-    fresh_backoff: B,
+    backoff: BACKOFF,
+    fresh_backoff: BACKOFF,
 }
 
-impl<B> FailureAccrualPolicy for ConsecutiveFailures<B>
+impl<BACKOFF> FailureAccrualPolicy for ConsecutiveFailures<BACKOFF>
 where
-    B: Iterator<Item = Duration> + Clone,
+    BACKOFF: Iterator<Item = Duration> + Clone,
 {
     #[inline]
     fn record_success(&mut self) {
@@ -222,15 +225,15 @@ where
 
 /// A combinator used for join two policies into new one.
 #[derive(Debug)]
-pub struct OrElse<L, R> {
-    left: L,
-    right: R,
+pub struct OrElse<LEFT, RIGHT> {
+    left: LEFT,
+    right: RIGHT,
 }
 
-impl<L, R> FailureAccrualPolicy for OrElse<L, R>
+impl<LEFT, RIGHT> FailureAccrualPolicy for OrElse<LEFT, RIGHT>
 where
-    L: FailureAccrualPolicy,
-    R: FailureAccrualPolicy,
+    LEFT: FailureAccrualPolicy,
+    RIGHT: FailureAccrualPolicy,
 {
     #[inline]
     fn record_success(&mut self) {
@@ -265,7 +268,7 @@ mod tests {
     use super::super::backoff;
     use super::super::mock_clock;
 
-    mod consecutive_failures_policy {
+    mod consecutive_failures {
         use super::*;
 
         #[test]
@@ -314,7 +317,7 @@ mod tests {
         }
     }
 
-    mod ema_success_rate_policy {
+    mod success_rate_over_time_window {
         use super::*;
 
         #[test]
@@ -322,7 +325,8 @@ mod tests {
             mock_clock::freeze(|time| {
                 let exp_backoff = exp_backoff();
                 let success_rate_duration = 30.seconds();
-                let mut policy = ema_success_rate(0.5, success_rate_duration, exp_backoff.clone());
+                let mut policy =
+                    success_rate_over_time_window(0.5, success_rate_duration, exp_backoff.clone());
 
                 assert_eq!(None, policy.mark_dead_on_failure());
 
@@ -342,7 +346,8 @@ mod tests {
             mock_clock::freeze(|time| {
                 let exp_backoff = exp_backoff();
                 let success_rate_duration = 30.seconds();
-                let mut policy = ema_success_rate(0.5, success_rate_duration, exp_backoff.clone());
+                let mut policy =
+                    success_rate_over_time_window(0.5, success_rate_duration, exp_backoff.clone());
 
                 time.advance(success_rate_duration);
                 for i in exp_backoff.take(6) {
@@ -366,7 +371,8 @@ mod tests {
             mock_clock::freeze(|time| {
                 let exp_backoff = exp_backoff();
                 let success_rate_duration = 100.seconds();
-                let mut policy = ema_success_rate(0.5, success_rate_duration, exp_backoff.clone());
+                let mut policy =
+                    success_rate_over_time_window(0.5, success_rate_duration, exp_backoff.clone());
 
                 for _i in 0..100 {
                     time.advance(1.seconds());
@@ -387,16 +393,14 @@ mod tests {
         }
     }
 
-    mod or_else_policy {
+    mod or_else {
         use super::*;
 
         #[test]
         fn compose_policies() {
-            let mut policy = consecutive_failures(3, constant_backoff()).or_else(ema_success_rate(
-                0.5,
-                10.seconds(),
-                constant_backoff(),
-            ));
+            let mut policy = consecutive_failures(3, constant_backoff()).or_else(
+                success_rate_over_time_window(0.5, 10.seconds(), constant_backoff()),
+            );
 
             policy.record_success();
             assert_eq!(None, policy.mark_dead_on_failure());

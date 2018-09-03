@@ -5,8 +5,8 @@
 use std::iter::{self, Iterator};
 use std::time::Duration;
 
+use rand::prelude::thread_rng;
 pub use rand::prelude::ThreadRng;
-use rand::prelude::{thread_rng, RngCore};
 
 const MAX_RETRIES: u32 = 30;
 
@@ -63,7 +63,7 @@ pub fn equal_jittered(start: Duration, max: Duration) -> EqualJittered {
         start,
         max,
         attempt: 0,
-        rng: thread_rng(),
+        rng: ThreadLocalGenRange,
     }
 }
 
@@ -89,7 +89,25 @@ pub fn full_jittered(start: Duration, max: Duration) -> FullJittered {
         start,
         max,
         attempt: 0,
-        rng: thread_rng(),
+        rng: ThreadLocalGenRange,
+    }
+}
+
+/// Random generator.
+pub trait GenRange {
+    /// Generates a random value within range low and high.
+    fn gen_range(&mut self, low: u64, high: u64) -> u64;
+}
+
+/// Thread local random generator, invokes `rand::thread_rng`.
+#[derive(Debug, Clone)]
+pub struct ThreadLocalGenRange;
+
+impl GenRange for ThreadLocalGenRange {
+    #[inline]
+    fn gen_range(&mut self, low: u64, high: u64) -> u64 {
+        use rand::Rng;
+        thread_rng().gen_range(low, high)
     }
 }
 
@@ -124,7 +142,7 @@ impl Iterator for Exponential {
 ///
 /// See https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/.
 #[derive(Clone, Debug)]
-pub struct FullJittered<R = ThreadRng> {
+pub struct FullJittered<R = ThreadLocalGenRange> {
     start: Duration,
     max: Duration,
     attempt: u32,
@@ -133,7 +151,7 @@ pub struct FullJittered<R = ThreadRng> {
 
 #[cfg(test)]
 impl<R> FullJittered<R> {
-    fn with_rng<T: RngCore>(self, rng: T) -> FullJittered<T> {
+    fn with_rng<T: GenRange>(self, rng: T) -> FullJittered<T> {
         FullJittered {
             rng,
             start: self.start,
@@ -143,15 +161,13 @@ impl<R> FullJittered<R> {
     }
 }
 
-impl<R: RngCore> Iterator for FullJittered<R> {
+impl<R: GenRange> Iterator for FullJittered<R> {
     type Item = Duration;
 
     fn next(&mut self) -> Option<Self::Item> {
-        use rand::Rng;
-
         let seconds = self
             .rng
-            .gen_range::<u64>(self.start.as_secs(), self.max.as_secs() + 1);
+            .gen_range(self.start.as_secs(), self.max.as_secs() + 1);
 
         if self.attempt < MAX_RETRIES {
             self.attempt += 1;
@@ -166,7 +182,7 @@ impl<R: RngCore> Iterator for FullJittered<R> {
 ///
 /// See https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/.
 #[derive(Clone, Debug)]
-pub struct EqualJittered<R = ThreadRng> {
+pub struct EqualJittered<R = ThreadLocalGenRange> {
     start: Duration,
     max: Duration,
     attempt: u32,
@@ -175,7 +191,7 @@ pub struct EqualJittered<R = ThreadRng> {
 
 #[cfg(test)]
 impl<R> EqualJittered<R> {
-    fn with_rng<T: RngCore>(self, rng: T) -> EqualJittered<T> {
+    fn with_rng<T: GenRange>(self, rng: T) -> EqualJittered<T> {
         EqualJittered {
             rng,
             start: self.start,
@@ -185,14 +201,12 @@ impl<R> EqualJittered<R> {
     }
 }
 
-impl<R: RngCore> Iterator for EqualJittered<R> {
+impl<R: GenRange> Iterator for EqualJittered<R> {
     type Item = Duration;
 
     fn next(&mut self) -> Option<Self::Item> {
-        use rand::Rng;
-
         let exp = exponential_backoff_seconds(self.attempt, self.start, self.max);
-        let seconds = (exp / 2) + self.rng.gen_range::<u64>(0, (exp / 2) + 1);
+        let seconds = (exp / 2) + self.rng.gen_range(0, (exp / 2) + 1);
 
         if self.attempt < MAX_RETRIES {
             self.attempt += 1;
@@ -203,17 +217,30 @@ impl<R: RngCore> Iterator for EqualJittered<R> {
 }
 
 fn exponential_backoff_seconds(attempt: u32, base: Duration, max: Duration) -> u64 {
-    let duration = ((1_u64 << attempt) * base.as_secs()).min(max.as_secs());
-    duration
+    ((1_u64 << attempt) * base.as_secs()).min(max.as_secs())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use rand::prng::XorShiftRng;
-    use rand::SeedableRng;
+    use rand::{RngCore, SeedableRng};
 
     const SEED: &'static [u8; 16] = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 8, 7, 6, 5, 4, 3, 2];
+    struct TestGenRage<T>(T);
+
+    impl Default for TestGenRage<XorShiftRng> {
+        fn default() -> Self {
+            TestGenRage(XorShiftRng::from_seed(*SEED))
+        }
+    }
+
+    impl<T: RngCore> GenRange for TestGenRage<T> {
+        fn gen_range(&mut self, low: u64, high: u64) -> u64 {
+            use rand::Rng;
+            self.0.gen_range(low, high)
+        }
+    }
 
     #[test]
     fn exponential_growth() {
@@ -227,7 +254,7 @@ mod tests {
     #[test]
     fn full_jittered_growth() {
         let backoff = full_jittered(Duration::from_secs(10), Duration::from_secs(100))
-            .with_rng(XorShiftRng::from_seed(*SEED));
+            .with_rng(TestGenRage::default());
 
         let actual = backoff.take(10).map(|it| it.as_secs()).collect::<Vec<_>>();
         let expected = vec![26, 13, 69, 32, 61, 69, 55, 46, 92, 22];
@@ -237,7 +264,7 @@ mod tests {
     #[test]
     fn equal_jittered_growth() {
         let backoff = equal_jittered(Duration::from_secs(5), Duration::from_secs(300))
-            .with_rng(XorShiftRng::from_seed(*SEED));
+            .with_rng(TestGenRage::default());
 
         let actual = backoff.take(10).map(|it| it.as_secs()).collect::<Vec<_>>();
         let expected = vec![2, 5, 10, 37, 63, 133, 225, 153, 216, 170];

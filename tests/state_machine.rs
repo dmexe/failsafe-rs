@@ -6,8 +6,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use resilience::failure_accrual::consecutive_failures;
-use resilience::{backoff, Instrumentation, StateMachine};
+use resilience::failure_accrual_policy::consecutive_failures;
+use resilience::{backoff, Instrument, StateMachine};
 
 /// Perform `Closed` -> `Open` -> `HalfOpen` -> `Open` -> `HalfOpen` -> `Closed` transitions.
 #[test]
@@ -16,70 +16,70 @@ fn state_machine() {
     let backoff = backoff::exponential(5.seconds(), 300.seconds());
     let policy = consecutive_failures(3, backoff);
 
-    let mut circuit_breaker = StateMachine::new(policy).with_instrumentation(observe.clone());
+    let mut state_machine = StateMachine::new(policy, observe.clone());
 
     mock_clock::freeze(move |time| {
-        assert_eq!(true, circuit_breaker.is_call_permitted());
+        assert_eq!(true, state_machine.is_call_permitted());
 
         // Perform success requests. the circuit breaker must be closed.
         for _i in 0..10 {
-            assert_eq!(true, circuit_breaker.is_call_permitted());
-            circuit_breaker.on_success();
+            assert_eq!(true, state_machine.is_call_permitted());
+            state_machine.on_success();
             assert_eq!(true, observe.is_closed());
         }
 
         // Perform failed requests, the circuit breaker still closed.
         for _i in 0..2 {
-            assert_eq!(true, circuit_breaker.is_call_permitted());
-            circuit_breaker.on_error();
+            assert_eq!(true, state_machine.is_call_permitted());
+            state_machine.on_error();
             assert_eq!(true, observe.is_closed());
         }
 
         // Perform a failed request and transit to the open state for 5s.
-        assert_eq!(true, circuit_breaker.is_call_permitted());
-        circuit_breaker.on_error();
+        assert_eq!(true, state_machine.is_call_permitted());
+        state_machine.on_error();
         assert_eq!(true, observe.is_open());
 
         // Reject call attempts, the circuit breaker in open state.
         for i in 0..10 {
-            assert_eq!(false, circuit_breaker.is_call_permitted());
+            assert_eq!(false, state_machine.is_call_permitted());
             assert_eq!(i + 1, observe.rejected_calls());
         }
 
         // Wait 2s, the circuit breaker still open.
         time.advance(2.seconds());
-        assert_eq!(false, circuit_breaker.is_call_permitted());
+        assert_eq!(false, state_machine.is_call_permitted());
         assert_eq!(true, observe.is_open());
 
         // Wait 4s (6s total), the circuit breaker now in the half open state.
         time.advance(4.seconds());
-        assert_eq!(true, circuit_breaker.is_call_permitted());
+        assert_eq!(true, state_machine.is_call_permitted());
         assert_eq!(true, observe.is_half_open());
 
         // Perform a failed request and transit back to the open state for 10s.
-        circuit_breaker.on_error();
-        assert_eq!(false, circuit_breaker.is_call_permitted());
+        state_machine.on_error();
+        assert_eq!(false, state_machine.is_call_permitted());
         assert_eq!(true, observe.is_open());
 
         // Wait 5s, the circuit breaker still open.
         time.advance(5.seconds());
-        assert_eq!(false, circuit_breaker.is_call_permitted());
+        assert_eq!(false, state_machine.is_call_permitted());
         assert_eq!(true, observe.is_open());
 
         // Wait 6s (11s total), the circuit breaker now in the half open state.
         time.advance(6.seconds());
-        assert_eq!(true, circuit_breaker.is_call_permitted());
+        assert_eq!(true, state_machine.is_call_permitted());
         assert_eq!(true, observe.is_half_open());
 
         // Perform a success request and transit to the closed state.
-        circuit_breaker.on_success();
-        assert_eq!(true, circuit_breaker.is_call_permitted());
+        state_machine.on_success();
+        assert_eq!(true, state_machine.is_call_permitted());
         assert_eq!(true, observe.is_closed());
 
         // Perform success requests.
         for _i in 0..10 {
-            assert_eq!(true, circuit_breaker.is_call_permitted());
-            circuit_breaker.on_success();
+            assert_eq!(true, state_machine.is_call_permitted());
+            state_machine.on_success();
         }
     });
 }
@@ -131,7 +131,7 @@ impl Observer {
     }
 }
 
-impl Instrumentation for Observer {
+impl Instrument for Observer {
     fn on_call_rejected(&self) {
         self.rejected_calls.fetch_add(1, Ordering::SeqCst);
     }
