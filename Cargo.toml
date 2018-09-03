@@ -1,10 +1,10 @@
 [package]
-name = "resilience"
+name = "failsafe"
 version = "0.1.0"
 authors = ["Dmitry Galinsky <dima.exe@gmail.com>"]
 description = "A circuit breaker implementation"
 license = "MIT"
-repository = "https://github.com/dmexe/resilience-rs"
+repository = "https://github.com/dmexe/failsafe-rs"
 
 [dependencies]
 futures = "0.1"

@@ -1,7 +1,7 @@
 # Resilience
 
 ------
-[![CircleCI](https://circleci.com/gh/dmexe/resilience-rs.svg?style=svg)](https://circleci.com/gh/dmexe/resilience-rs)
+[![CircleCI](https://circleci.com/gh/dmexe/failsafe-rs.svg?style=svg)](https://circleci.com/gh/dmexe/failsafe-rs)
 
 A circuit breaker implementation which used to detect failures and encapsulates the logic of preventing a 
 failure from constantly recurring, during maintenance, temporary external system failure or unexpected 
@@ -21,13 +21,13 @@ system difficulties.
 Add this to your Cargo.toml:
 
 ```toml
-resilience = "0.1.0"
+failsafe = "0.1.0"
 ```
 
 and this to your crate root:
 
 ```rust
-extern crate resilience;
+extern crate failsafe;
 ```
 
 # Example
@@ -35,7 +35,7 @@ extern crate resilience;
 Using default backoff strategy and failure accrual policy.
 
 ```rust
-use resilience::{CircuitBreaker, Callable, Error};
+use failsafe::{CircuitBreaker, Callable, Error};
 
 // A function that sometimes failed.
 fn dangerous_call() -> Result<(), ()> {
@@ -69,7 +69,7 @@ Or configure custom backoff and policy:
 
 ```rust
 use std::time::Duration;
-use resilience::{backoff, failure_policy, CircuitBreaker};
+use failsafe::{backoff, failure_policy, CircuitBreaker};
 
 // Create an exponential growth backoff which starts from 5s and ends with 60s.
 let backoff = backoff::exponential(Duration::from_secs(10), Duration::from_secs(60));

@@ -1,4 +1,4 @@
-extern crate resilience;
+extern crate failsafe;
 extern crate tokio_executor;
 extern crate tokio_timer;
 
@@ -6,8 +6,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use resilience::failure_policy::consecutive_failures;
-use resilience::{backoff, Instrument, StateMachine};
+use failsafe::failure_policy::consecutive_failures;
+use failsafe::{backoff, Instrument, StateMachine};
 
 /// Perform `Closed` -> `Open` -> `HalfOpen` -> `Open` -> `HalfOpen` -> `Closed` transitions.
 #[test]

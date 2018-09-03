@@ -2,15 +2,12 @@
 #![deny(warnings)]
 
 extern crate futures;
-extern crate resilience;
+extern crate failsafe;
 extern crate test;
 extern crate tokio;
 
 use futures::{future, Future};
-use resilience::{
-    futures::{Callable, CircuitBreaker},
-    Error,
-};
+use failsafe::{futures::{Callable, CircuitBreaker}, Error};
 use std::sync::mpsc::channel;
 
 #[bench]

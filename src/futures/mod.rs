@@ -5,13 +5,13 @@
 //! Using default backoff strategy and failure accrual policy.
 //!
 //! ```
-//! # extern crate resilience;
+//! # extern crate failsafe;
 //! # extern crate rand;
 //! # extern crate futures;
 //! # use rand::{thread_rng, Rng};
 //!
 //! use futures::{future, Future};
-//! use resilience::futures::{CircuitBreaker, Callable};
+//! use failsafe::futures::{CircuitBreaker, Callable};
 //!
 //! // A function that sometimes failed.
 //! fn dangerous_call() -> impl Future<Item = (), Error = ()> {

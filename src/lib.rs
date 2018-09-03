@@ -13,11 +13,11 @@
 //! Using default backoff strategy and failure accrual policy.
 //!
 //! ```
-//! # extern crate resilience;
+//! # extern crate failsafe;
 //! # extern crate rand;
 //! # use rand::{thread_rng, Rng};
 //!
-//! use resilience::{CircuitBreaker, Callable, Error};
+//! use failsafe::{CircuitBreaker, Callable, Error};
 //!
 //! // A function that sometimes failed.
 //! fn dangerous_call() -> Result<(), ()> {
@@ -50,11 +50,11 @@
 //! Or configure custom backoff and policy:
 //!
 //! ```
-//! # extern crate resilience;
+//! # extern crate failsafe;
 //! # extern crate rand;
 //!
 //! use std::time::Duration;
-//! use resilience::{backoff, failure_policy, CircuitBreaker};
+//! use failsafe::{backoff, failure_policy, CircuitBreaker};
 //!
 //! // Create an exponential growth backoff which starts from 5s and ends with 60s.
 //! let backoff = backoff::exponential(Duration::from_secs(10), Duration::from_secs(60));

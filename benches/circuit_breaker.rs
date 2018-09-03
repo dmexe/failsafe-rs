@@ -2,13 +2,13 @@
 #![deny(warnings)]
 
 extern crate rayon;
-extern crate resilience;
+extern crate failsafe;
 extern crate test;
 
 use std::sync::mpsc::channel;
 
 use rayon::ThreadPoolBuilder;
-use resilience::{Callable, CircuitBreaker, Error};
+use failsafe::{Callable, CircuitBreaker, Error};
 
 #[bench]
 fn single_threaded(b: &mut test::Bencher) {
