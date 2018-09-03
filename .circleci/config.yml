@@ -27,7 +27,7 @@ default_steps: &default_steps
         name: "Test"
         command: ${CARGO} test ${CARGO_ARGS} -- --nocapture
     - save_cache:
-        key: cache-v3-{{ checksum "/root/.cache-key" }}-{{ checksum "./Cargo.toml" }}
+        key: cache-v1-{{ checksum "/root/.cache-key" }}-{{ checksum "./Cargo.toml" }}
         paths:
           - "/root/.cargo"
           - "./target"
@@ -54,7 +54,7 @@ workflows:
   version: 2
   commit:
     jobs:
-    - rust_1_26
+    - rust_1_27
     - rust_1_28
     - rust_nightly
   nightly:

@@ -1,5 +1,8 @@
 # Resilience
 
+------
+[![CircleCI](https://circleci.com/gh/dmexe/resilience-rs.svg?style=svg)](https://circleci.com/gh/dmexe/resilience-rs)
+
 A circuit breaker implementation which used to detect failures and encapsulates the logic of preventing a 
 failure from constantly recurring, during maintenance, temporary external system failure or unexpected 
 system difficulties.
@@ -11,6 +14,7 @@ system difficulties.
 * Working with both `Fn() -> Result` and `Future`.
 * Backoff strategies: `constant`, `exponential`, `equal_jittered`, `full_jittered`
 * Failure detection policies: `consecutive_failures`, `success_rate_over_time_window`
+* Minimum rust version: 1.27
 
 # Usage
 

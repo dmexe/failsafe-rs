@@ -8,12 +8,12 @@ NC='\033[0m' # No Color
 
 CARGO=${CARGO:-cargo}
 
-function is_nightly {
-  (rustc --version | grep -q nightly && echo "yes") || echo "no"
+function is_stable {
+  (rustc --version | grep -q "rustc 1.28" && echo "yes") || echo "no"
 }
 
-if [ "x$(is_nightly)" == "xno" ] ; then
-  echo -e "${GREEN}Skip, there isn't nightly${NC}"
+if [ "x$(is_stable)" == "xno" ] ; then
+  echo -e "${GREEN}Skip, there isn't stable${NC}"
   exit 0
 fi
 
