@@ -26,6 +26,12 @@ default_steps: &default_steps
     - run:
         name: "Test"
         command: ${CARGO} test ${CARGO_ARGS} -- --nocapture
+    - run:
+        name: "Bench"
+        command: |
+          if [ "$CIRCLE_JOB" == "rust_nightly" ]; then
+            ${CARGO} bench --benches ${CARGO_ARGS}
+          fi
     - save_cache:
         key: cache-v1-{{ checksum "/root/.cache-key" }}-{{ checksum "./Cargo.toml" }}
         paths:
