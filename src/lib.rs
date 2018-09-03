@@ -2,9 +2,15 @@
 //! from constantly recurring, during maintenance, temporary external system failure or unexpected
 //! system difficulties.
 //!
-//! See https://martinfowler.com/bliki/CircuitBreaker.html
+//! # Links
+//!
+//! * Future aware circuit breaker's interface [futures::CircuitBreaker](futures/index.html).
+//! * The state machine which is used [StateMachine](state_machine/StateMachine.t.html).
+//! * More about circuit breakers [https://martinfowler.com/bliki/CircuitBreaker.html](https://martinfowler.com/bliki/CircuitBreaker.html)
 //!
 //! # Example
+//!
+//! Using default backoff strategy and failure accrual policy.
 //!
 //! ```
 //! # extern crate resilience;
@@ -14,7 +20,7 @@
 //! use resilience::{CircuitBreaker, Callable, Error};
 //!
 //! // A function that sometimes failed.
-//! fn danger_call() -> Result<(), ()> {
+//! fn dangerous_call() -> Result<(), ()> {
 //!   if thread_rng().gen_range(0, 2) == 0 {
 //!     return Err(())
 //!   }
@@ -25,10 +31,10 @@
 //! // failure accrual policy.
 //! let circuit_breaker = CircuitBreaker::builder().build();
 //!
-//! // In cycle call the function, after some iterations the circuit breaker will
-//! // be in a open state and reject calls.
+//! // Call the function in a loop, after some iterations the circuit breaker will
+//! // be in a open state and reject next calls.
 //! for n in 0..100 {
-//!   match circuit_breaker.call(|| danger_call()) {
+//!   match circuit_breaker.call(|| dangerous_call()) {
 //!     Err(Error::Inner(_)) => {
 //!       eprintln!("{}: fail", n);
 //!     },
@@ -40,6 +46,28 @@
 //!   }
 //! }
 //! ```
+//!
+//! Or configure custom backoff and policy:
+//!
+//! ```
+//! # extern crate resilience;
+//! # extern crate rand;
+//!
+//! use std::time::Duration;
+//! use resilience::{backoff, failure_policy, CircuitBreaker};
+//!
+//! // Create an exponential growth backoff which starts from 5s and ends with 60s.
+//! let backoff = backoff::exponential(Duration::from_secs(10), Duration::from_secs(60));
+//!
+//! // Create a policy which failed when three consecutive failures were made.
+//! let policy = failure_policy::consecutive_failures(3, backoff);
+//!
+//! // Creates a circuit breaker with given policy.
+//! let circuit_breaker = CircuitBreaker::builder()
+//!   .failure_policy(policy)
+//!   .build();
+//!
+//! ```
 
 #![deny(missing_debug_implementations)]
 #![deny(missing_docs)]
@@ -47,23 +75,31 @@
 
 extern crate futures as lib_futures;
 extern crate rand;
-extern crate tokio_executor;
 extern crate tokio_timer;
 
+#[cfg(test)]
+extern crate tokio_executor;
+
+#[cfg(test)]
+extern crate tokio;
+
 mod circuit_breaker;
+mod config;
 mod ema;
 mod error;
 mod failure_predicate;
 mod state_machine;
 
 pub mod backoff;
-pub mod failure_accrual_policy;
+pub mod failure_policy;
 pub mod futures;
 
 #[cfg(test)]
 mod mock_clock;
 
-pub use self::circuit_breaker::{Builder, Callable, CircuitBreaker};
+pub use self::circuit_breaker::{Callable, CircuitBreaker};
+pub use self::config::Config;
 pub use self::error::Error;
+pub use self::failure_policy::FailurePolicy;
 pub use self::failure_predicate::FailurePredicate;
 pub use self::state_machine::{Instrument, StateMachine};

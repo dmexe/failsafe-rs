@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 
 use tokio_timer::clock;
 
-use super::failure_accrual_policy::FailureAccrualPolicy;
+use super::failure_policy::FailurePolicy;
 
 /// States of the state machine.
 #[derive(Clone, Debug)]
@@ -17,16 +17,16 @@ pub enum State {
     HalfOpen(Duration),
 }
 
-/// A circuit breaker' state machine manages the state of a backend system.
+/// A circuit breaker' state machine.
 ///
 /// It is implemented via a finite state machine with three states: `Closed`, `Open` and `HalfOpen`.
 /// The state machine does not know anything about the backend's state by itself, but uses the
 /// information provided by the method via `on_success` and `on_error` events. Before communicating
 /// with the backend, the the permission to do so must be obtained via the method `is_call_permitted`.
 ///
-/// The state of the state machine changes from `Closed` to `Open` when the `FailureAccrualPolicy`
+/// The state of the state machine changes from `Closed` to `Open` when the `FailurePolicy`
 /// reports that the failure rate is above a (configurable) threshold. Then, all access to the backend
-/// is blocked for a time duration provided by `FailureAccrualPolicy`.
+/// is blocked for a time duration provided by `FailurePolicy`.
 ///
 /// After the time duration has elapsed, the state changes from `Open` to `HalfOpen` and allows
 /// calls to see if the backend is still unavailable or has become available again. If the circuit
@@ -34,7 +34,7 @@ pub enum State {
 /// it changes to `Closed`.
 #[derive(Debug)]
 pub struct StateMachine<POLICY, INSTRUMENT> {
-    failure_accrual_policy: POLICY,
+    failure_policy: POLICY,
     instrument: INSTRUMENT,
     state: State,
 }
@@ -88,13 +88,13 @@ impl Display for State {
 
 impl<POLICY, INSTRUMENT> StateMachine<POLICY, INSTRUMENT>
 where
-    POLICY: FailureAccrualPolicy,
+    POLICY: FailurePolicy,
     INSTRUMENT: Instrument,
 {
     /// Creates a new state machine with given failure policy and instrument.
-    pub fn new(failure_accrual_policy: POLICY, instrument: INSTRUMENT) -> Self {
+    pub fn new(failure_policy: POLICY, instrument: INSTRUMENT) -> Self {
         StateMachine {
-            failure_accrual_policy,
+            failure_policy,
             instrument,
             state: State::Closed,
         }
@@ -123,7 +123,7 @@ where
         if let State::HalfOpen(_) = self.state {
             self.reset();
         }
-        self.failure_accrual_policy.record_success()
+        self.failure_policy.record_success()
     }
 
     /// Records a failed call.
@@ -132,7 +132,7 @@ where
     pub fn on_error(&mut self) {
         match self.state {
             State::Closed => {
-                if let Some(delay) = self.failure_accrual_policy.mark_dead_on_failure() {
+                if let Some(delay) = self.failure_policy.mark_dead_on_failure() {
                     self.transit_to_open(delay);
                 }
             }
@@ -140,7 +140,7 @@ where
                 // Pick up the next open state's delay from the policy, if policy returns Some(_)
                 // use it, otherwise reuse the delay from the current state.
                 let delay = self
-                    .failure_accrual_policy
+                    .failure_policy
                     .mark_dead_on_failure()
                     .unwrap_or(delay_in_half_open);
                 self.transit_to_open(delay);
@@ -153,7 +153,7 @@ where
     #[inline]
     pub fn reset(&mut self) {
         self.state = State::Closed;
-        self.failure_accrual_policy.revived();
+        self.failure_policy.revived();
         self.instrument.on_closed();
     }
 

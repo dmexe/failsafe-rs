@@ -17,22 +17,19 @@ const DEFAULT_SUCCESS_RATE_THRESHOLD: f64 = 0.8;
 const DEFAULT_SUCCESS_RATE_WINDOW_SECONDS: u64 = 30;
 const DEFAULT_CONSECUTIVE_FAILURES: u32 = 5;
 
-/// A `FailureAccrualPolicy` is used` to determine whether to mark an endpoint dead upon a request
-/// failure. On each successful response, `FailureAccrualFactory` calls `record_success`. On each
-/// failure, `FailureAccrualFactory` calls `mark_dead_on_failure` to obtain the duration
-/// to mark the endpoint dead for; (Some(Duration)), or None.
-pub trait FailureAccrualPolicy {
+/// A `FailurePolicy` is used to determine whether or not the backend died.
+pub trait FailurePolicy {
     /// Invoked when a request is successful.
     fn record_success(&mut self);
 
     /// Invoked when a non-probing request fails.  If it returns `Some(Duration)`,
-    /// the endpoint will mark as the dead for the specified `Duration`.
+    /// the backend will mark as the dead for the specified `Duration`.
     fn mark_dead_on_failure(&mut self) -> Option<Duration>;
 
-    /// Invoked  when an endpoint is revived after probing. Used to reset any history.
+    /// Invoked  when a backend is revived after probing. Used to reset any history.
     fn revived(&mut self);
 
-    /// Creates a `FailureAccrualPolicy` which uses both `self` and `rhs`.
+    /// Creates a `FailurePolicy` which uses both `self` and `rhs`.
     fn or_else<R>(self, rhs: R) -> OrElse<Self, R>
     where
         Self: Sized,
@@ -155,7 +152,7 @@ where
     }
 }
 
-impl<BACKOFF> FailureAccrualPolicy for SuccessRateOverTimeWindow<BACKOFF>
+impl<BACKOFF> FailurePolicy for SuccessRateOverTimeWindow<BACKOFF>
 where
     BACKOFF: Iterator<Item = Duration> + Clone,
 {
@@ -195,7 +192,7 @@ pub struct ConsecutiveFailures<BACKOFF> {
     fresh_backoff: BACKOFF,
 }
 
-impl<BACKOFF> FailureAccrualPolicy for ConsecutiveFailures<BACKOFF>
+impl<BACKOFF> FailurePolicy for ConsecutiveFailures<BACKOFF>
 where
     BACKOFF: Iterator<Item = Duration> + Clone,
 {
@@ -230,10 +227,10 @@ pub struct OrElse<LEFT, RIGHT> {
     right: RIGHT,
 }
 
-impl<LEFT, RIGHT> FailureAccrualPolicy for OrElse<LEFT, RIGHT>
+impl<LEFT, RIGHT> FailurePolicy for OrElse<LEFT, RIGHT>
 where
-    LEFT: FailureAccrualPolicy,
-    RIGHT: FailureAccrualPolicy,
+    LEFT: FailurePolicy,
+    RIGHT: FailurePolicy,
 {
     #[inline]
     fn record_success(&mut self) {

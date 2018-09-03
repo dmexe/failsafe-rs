@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use resilience::failure_accrual_policy::consecutive_failures;
+use resilience::failure_policy::consecutive_failures;
 use resilience::{backoff, Instrument, StateMachine};
 
 /// Perform `Closed` -> `Open` -> `HalfOpen` -> `Open` -> `HalfOpen` -> `Closed` transitions.

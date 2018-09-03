@@ -6,10 +6,11 @@ publish = false
 
 [dependencies]
 futures = "0.1"
-tokio-timer = "0.2.6"
+tokio-timer = "0.2"
 tokio-executor = "0.1"
-rand = "0.5.5"
+rand = "0.5"
 
 [dev-dependencies]
 rayon = "1.0"
-
+tokio = "0.1.8"
+tokio-threadpool = "0.1.6"

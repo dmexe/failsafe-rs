@@ -1,19 +1,11 @@
 use std::sync::{Arc, Mutex};
 
 use super::backoff;
+use super::config::{Config, IntoCircuitBreaker};
 use super::error::Error;
-use super::failure_accrual_policy::{
-    self, ConsecutiveFailures, FailureAccrualPolicy, SuccessRateOverTimeWindow,
-};
+use super::failure_policy::{self, ConsecutiveFailures, FailurePolicy, SuccessRateOverTimeWindow};
 use super::failure_predicate::{self, FailurePredicate};
 use super::state_machine::{Instrument, NoopInstrument, StateMachine};
-
-/// A `CircuitBreaker`'s builder.
-#[derive(Debug)]
-pub struct Builder<POLICY, INSTRUMENT> {
-    failure_accrual_policy: POLICY,
-    instrument: INSTRUMENT,
-}
 
 /// TODO.
 #[derive(Debug)]
@@ -50,85 +42,23 @@ pub trait Callable {
         P: FailurePredicate<E>;
 }
 
-impl<POLICY, INSTRUMENT> Builder<POLICY, INSTRUMENT> {
-    /// Configures `FailureAccrualPolicy` for a circuit breaker.
-    pub fn failure_accrual_policy<T>(self, failure_accrual_policy: T) -> Builder<T, INSTRUMENT> {
-        Builder {
-            failure_accrual_policy,
-            instrument: self.instrument,
-        }
-    }
-
-    /// Configures `Instrument` for a circuit breaker.
-    pub fn instrument<T>(self, instrument: T) -> Builder<POLICY, T> {
-        Builder {
-            failure_accrual_policy: self.failure_accrual_policy,
-            instrument,
-        }
-    }
-
-    /// Builds a new circuit breaker instance.
-    pub fn build(self) -> CircuitBreaker<POLICY, INSTRUMENT>
-    where
-        POLICY: FailureAccrualPolicy,
-        INSTRUMENT: Instrument,
-    {
-        let state_machine = StateMachine::new(self.failure_accrual_policy, self.instrument);
-        CircuitBreaker::new(state_machine)
-    }
-}
-
-impl Default
-    for Builder<
-        failure_accrual_policy::OrElse<
-            SuccessRateOverTimeWindow<backoff::EqualJittered>,
-            ConsecutiveFailures<backoff::EqualJittered>,
-        >,
-        NoopInstrument,
-    >
-{
-    fn default() -> Self {
-        let failure_accrual_policy =
-            SuccessRateOverTimeWindow::default().or_else(ConsecutiveFailures::default());
-        let instrument = NoopInstrument;
-
-        Self {
-            failure_accrual_policy,
-            instrument,
-        }
-    }
-}
-
-impl Default
-    for CircuitBreaker<
-        failure_accrual_policy::OrElse<
-            SuccessRateOverTimeWindow<backoff::EqualJittered>,
-            ConsecutiveFailures<backoff::EqualJittered>,
-        >,
-        NoopInstrument,
-    >
-{
-    fn default() -> Self {
-        Builder::default().build()
-    }
-}
-
 impl CircuitBreaker<(), ()> {
     /// Returns a circuit breaker's builder.
-    pub fn builder() -> Builder<
-        failure_accrual_policy::OrElse<
+    pub fn builder() -> Config<
+        failure_policy::OrElse<
             SuccessRateOverTimeWindow<backoff::EqualJittered>,
             ConsecutiveFailures<backoff::EqualJittered>,
         >,
         NoopInstrument,
+        Tag,
     > {
-        Builder::default()
+        Config::new()
     }
 }
 
 impl<POLICY, INSTRUMENT> CircuitBreaker<POLICY, INSTRUMENT>
 where
-    POLICY: FailureAccrualPolicy,
+    POLICY: FailurePolicy,
     INSTRUMENT: Instrument,
 {
     /// Creates a new circuit breaker using given state machine.
@@ -155,7 +85,7 @@ where
 
 impl<POLICY, INSTRUMENT> Callable for CircuitBreaker<POLICY, INSTRUMENT>
 where
-    POLICY: FailureAccrualPolicy,
+    POLICY: FailurePolicy,
     INSTRUMENT: Instrument,
 {
     #[inline]
@@ -196,5 +126,22 @@ impl<POLICY, INSTRUMENT> Clone for CircuitBreaker<POLICY, INSTRUMENT> {
         Self {
             state_machine: self.state_machine.clone(),
         }
+    }
+}
+
+#[doc(hidden)]
+#[derive(Debug)]
+pub struct Tag;
+
+impl<POLICY, INSTRUMENT> IntoCircuitBreaker for Config<POLICY, INSTRUMENT, Tag>
+where
+    POLICY: FailurePolicy,
+    INSTRUMENT: Instrument,
+{
+    type Output = CircuitBreaker<POLICY, INSTRUMENT>;
+
+    fn into_circuit_breaker(self) -> CircuitBreaker<POLICY, INSTRUMENT> {
+        let state_machine = StateMachine::new(self.failure_policy, self.instrument);
+        CircuitBreaker::new(state_machine)
     }
 }
