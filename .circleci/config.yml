@@ -32,11 +32,11 @@ default_steps: &default_steps
           - "/root/.cargo"
           - "./target"
 jobs:
-  rust_1_26:
+  rust_1_27:
     <<: *default_env
     <<: *default_steps
     docker:
-    - image: "rust:1.26"
+    - image: "rust:1.27"
 
   rust_1_28:
     <<: *default_env
