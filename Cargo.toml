@@ -2,7 +2,9 @@
 name = "resilience"
 version = "0.1.0"
 authors = ["Dmitry Galinsky <dima.exe@gmail.com>"]
-publish = false
+description = "A circuit breaker implementation"
+license = "MIT"
+repository = "https://github.com/dmexe/resilience-rs"
 
 [dependencies]
 futures = "0.1"
