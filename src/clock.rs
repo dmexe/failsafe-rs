@@ -12,11 +12,11 @@ impl MockClock {
     }
 
     pub fn now(&self) -> Instant {
-        self.0.clone()
+        self.0
     }
 
     pub fn advance(&mut self, diff: Duration) {
-        self.0 = self.0 + diff
+        self.0 += diff
     }
 }
 

@@ -71,7 +71,7 @@
 
 #![deny(missing_debug_implementations)]
 #![deny(missing_docs)]
-#![cfg_attr(test, deny(warnings))]
+//#![cfg_attr(test, deny(warnings))]
 
 extern crate futures as lib_futures;
 extern crate rand;
@@ -86,6 +86,7 @@ mod ema;
 mod error;
 mod failure_predicate;
 mod state_machine;
+mod token_bucket;
 
 pub mod backoff;
 pub mod failure_policy;
