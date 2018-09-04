@@ -1,24 +1,22 @@
 extern crate failsafe;
-extern crate tokio_executor;
-extern crate tokio_timer;
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use failsafe::failure_policy::consecutive_failures;
-use failsafe::{backoff, Instrument, StateMachine};
+use failsafe::{backoff, clock, Instrument, StateMachine};
 
 /// Perform `Closed` -> `Open` -> `HalfOpen` -> `Open` -> `HalfOpen` -> `Closed` transitions.
 #[test]
 fn state_machine() {
-    let observe = Observer::new();
-    let backoff = backoff::exponential(5.seconds(), 300.seconds());
-    let policy = consecutive_failures(3, backoff);
+    clock::freeze(move |time| {
+        let observe = Observer::new();
+        let backoff = backoff::exponential(5.seconds(), 300.seconds());
+        let policy = consecutive_failures(3, backoff);
 
-    let mut state_machine = StateMachine::new(policy, observe.clone());
+        let mut state_machine = StateMachine::new(policy, observe.clone());
 
-    mock_clock::freeze(move |time| {
         assert_eq!(true, state_machine.is_call_permitted());
 
         // Perform success requests. the circuit breaker must be closed.
@@ -50,6 +48,8 @@ fn state_machine() {
         time.advance(2.seconds());
         assert_eq!(false, state_machine.is_call_permitted());
         assert_eq!(true, observe.is_open());
+
+        clock::now();
 
         // Wait 4s (6s total), the circuit breaker now in the half open state.
         time.advance(4.seconds());
@@ -163,8 +163,4 @@ impl IntoDuration for u64 {
     fn seconds(self) -> Duration {
         Duration::from_secs(self)
     }
-}
-
-mod mock_clock {
-    include!("../src/mock_clock.rs");
 }

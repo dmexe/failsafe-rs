@@ -3,9 +3,8 @@
 use std::iter::Iterator;
 use std::time::{Duration, Instant};
 
-use tokio_timer::clock;
-
 use super::backoff;
+use super::clock;
 use super::ema::Ema;
 
 static DEFAULT_BACKOFF: Duration = Duration::from_secs(300);
@@ -263,7 +262,7 @@ mod tests {
     use super::*;
 
     use super::super::backoff;
-    use super::super::mock_clock;
+    use super::super::clock;
 
     mod consecutive_failures {
         use super::*;
@@ -319,7 +318,7 @@ mod tests {
 
         #[test]
         fn fail_when_success_rate_not_met() {
-            mock_clock::freeze(|time| {
+            clock::freeze(|time| {
                 let exp_backoff = exp_backoff();
                 let success_rate_duration = 30.seconds();
                 let mut policy =
@@ -340,7 +339,7 @@ mod tests {
 
         #[test]
         fn revived_resets_failures() {
-            mock_clock::freeze(|time| {
+            clock::freeze(|time| {
                 let exp_backoff = exp_backoff();
                 let success_rate_duration = 30.seconds();
                 let mut policy =
@@ -365,7 +364,7 @@ mod tests {
 
         #[test]
         fn fractional_success_rate() {
-            mock_clock::freeze(|time| {
+            clock::freeze(|time| {
                 let exp_backoff = exp_backoff();
                 let success_rate_duration = 100.seconds();
                 let mut policy =

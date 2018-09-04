@@ -1,8 +1,7 @@
 use std::fmt::{self, Display};
 use std::time::{Duration, Instant};
 
-use tokio_timer::clock;
-
+use super::clock;
 use super::failure_policy::FailurePolicy;
 
 /// States of the state machine.

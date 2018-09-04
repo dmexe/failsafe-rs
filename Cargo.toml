@@ -8,11 +8,9 @@ repository = "https://github.com/dmexe/failsafe-rs"
 
 [dependencies]
 futures = "0.1"
-tokio-timer = "0.2"
 rand = "0.5"
 
 [dev-dependencies]
 rayon = "1.0"
 tokio = "0.1.8"
-tokio-executor = "0.1"
-tokio-threadpool = "0.1.6"
+

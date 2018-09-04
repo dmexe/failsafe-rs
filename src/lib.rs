@@ -75,10 +75,6 @@
 
 extern crate futures as lib_futures;
 extern crate rand;
-extern crate tokio_timer;
-
-#[cfg(test)]
-extern crate tokio_executor;
 
 #[cfg(test)]
 extern crate tokio;
@@ -90,12 +86,12 @@ mod error;
 mod failure_predicate;
 mod state_machine;
 
+#[doc(hidden)]
+pub mod clock;
+
 pub mod backoff;
 pub mod failure_policy;
 pub mod futures;
-
-#[cfg(test)]
-mod mock_clock;
 
 pub use self::circuit_breaker::{Callable, CircuitBreaker};
 pub use self::config::Config;
