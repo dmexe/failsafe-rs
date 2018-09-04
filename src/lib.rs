@@ -80,14 +80,12 @@ extern crate rand;
 extern crate tokio;
 
 mod circuit_breaker;
+mod clock;
 mod config;
 mod ema;
 mod error;
 mod failure_predicate;
 mod state_machine;
-
-#[doc(hidden)]
-pub mod clock;
 
 pub mod backoff;
 pub mod failure_policy;
