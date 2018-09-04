@@ -3,6 +3,7 @@
 [![Сrate](https://img.shields.io/crates/v/failsafe.svg)](https://crates.io/crates/failsafe)
 [![Вocumentation](https://docs.rs/failsafe/badge.svg)](https://docs.rs/failsafe)
 [![CircleCI](https://circleci.com/gh/dmexe/failsafe-rs.svg?style=svg)](https://circleci.com/gh/dmexe/failsafe-rs)
+[![Appveyor](https://ci.appveyor.com/api/projects/status/c0qrj9dbskneunjg/branch/master?svg=true)](https://ci.appveyor.com/project/dmexe/failsafe-rs/branch/master)
 
 A circuit breaker implementation which used to detect failures and encapsulates the logic of preventing a 
 failure from constantly recurring, during maintenance, temporary external system failure or unexpected 
