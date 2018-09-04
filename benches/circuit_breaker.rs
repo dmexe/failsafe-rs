@@ -6,7 +6,6 @@ extern crate futures;
 extern crate test;
 extern crate tokio_threadpool;
 
-use std::cell::RefCell;
 use std::sync::mpsc::channel;
 
 use failsafe::{Callable, CircuitBreaker, Error};
@@ -31,7 +30,7 @@ fn single_threaded(b: &mut test::Bencher) {
 #[bench]
 fn multi_threaded_in_batch(b: &mut test::Bencher) {
     let circuit_breaker = CircuitBreaker::builder().build();
-    let thread_pool = RefCell::new(ThreadPool::new());
+    let thread_pool = ThreadPool::new();
     let batch_size = 10;
 
     b.iter(move || {
@@ -51,7 +50,6 @@ fn multi_threaded_in_batch(b: &mut test::Bencher) {
                 Ok(())
             });
 
-            let thread_pool = thread_pool.borrow();
             thread_pool.spawn(future);
         }
 
