@@ -2,13 +2,16 @@
 #![deny(warnings)]
 
 extern crate failsafe;
-extern crate rayon;
+extern crate futures;
 extern crate test;
+extern crate tokio_threadpool;
 
+use std::cell::RefCell;
 use std::sync::mpsc::channel;
 
 use failsafe::{Callable, CircuitBreaker, Error};
-use rayon::ThreadPoolBuilder;
+use futures::future;
+use tokio_threadpool::ThreadPool;
 
 #[bench]
 fn single_threaded(b: &mut test::Bencher) {
@@ -16,7 +19,11 @@ fn single_threaded(b: &mut test::Bencher) {
     let mut n = 0;
 
     b.iter(move || {
-        circuit_breaker_call(&circuit_breaker, 1);
+        match circuit_breaker.call(|| dangerous_call(n)) {
+            Ok(_) => {}
+            Err(Error::Inner(_)) => {}
+            Err(err) => unreachable!("{:?}", err),
+        }
         n += 1;
     })
 }
@@ -24,47 +31,41 @@ fn single_threaded(b: &mut test::Bencher) {
 #[bench]
 fn multi_threaded_in_batch(b: &mut test::Bencher) {
     let circuit_breaker = CircuitBreaker::builder().build();
-    let pool = ThreadPoolBuilder::new().build().unwrap();
+    let thread_pool = RefCell::new(ThreadPool::new());
     let batch_size = 10;
 
     b.iter(move || {
-        let mut join = Vec::with_capacity(batch_size);
-        let mut n = 0;
+        let (tx, rx) = channel();
 
-        for _ in 0..batch_size {
+        for n in 0..batch_size {
             let circuit_breaker = circuit_breaker.clone();
-            let (tx, rx) = channel();
-            join.push(rx);
+            let tx = tx.clone();
 
-            pool.spawn(move || {
-                circuit_breaker_call(&circuit_breaker, n);
-                tx.send(()).unwrap();
+            let future = future::lazy(move || {
+                let res = match circuit_breaker.call(|| dangerous_call(n)) {
+                    Ok(n) => n,
+                    Err(Error::Inner(n)) => n,
+                    Err(err) => unreachable!("{:?}", err),
+                };
+                tx.send(res).unwrap();
+                Ok(())
             });
-            n += 1;
+
+            let thread_pool = thread_pool.borrow();
+            thread_pool.spawn(future);
         }
 
-        for it in join {
-            it.recv().unwrap();
-        }
+        drop(tx);
+
+        let res = rx.iter().sum();
+        assert_eq!(45usize, res);
     });
 }
 
-fn circuit_breaker_call<C: Callable>(call: &C, n: u64) {
-    match call.call(|| danger_call(n)) {
-        Err(Error::Rejected) => panic!("rejected call"),
-        Err(err) => {
-            test::black_box(err);
-        }
-        Ok(ok) => {
-            test::black_box(ok);
-        }
-    };
-}
-
-fn danger_call(n: u64) -> Result<(), ()> {
-    if n % 10 == 0 {
-        Err(())
+fn dangerous_call(n: usize) -> Result<usize, usize> {
+    if n % 5 == 0 {
+        test::black_box(Err(n))
     } else {
-        Ok(())
+        test::black_box(Ok(n))
     }
 }

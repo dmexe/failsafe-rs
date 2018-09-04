@@ -11,6 +11,5 @@ futures = "0.1"
 rand = "0.5"
 
 [dev-dependencies]
-rayon = "1.0"
 tokio = "0.1.8"
-
+tokio-threadpool = "0.1.6"

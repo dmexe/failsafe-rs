@@ -6,63 +6,49 @@ extern crate futures;
 extern crate test;
 extern crate tokio;
 
+use std::cell::RefCell;
+
 use failsafe::{
     futures::{Callable, CircuitBreaker},
     Error,
 };
-use futures::{future, Future};
-use std::sync::mpsc::channel;
+use futures::{future, stream, Future, Stream};
 
 #[bench]
 fn multi_threaded_in_batch(b: &mut test::Bencher) {
     let circuit_breaker = CircuitBreaker::builder().build();
-    let mut runtime = tokio::runtime::Runtime::new().unwrap();
+    let runtime = RefCell::new(tokio::runtime::Runtime::new().unwrap());
     let batch_size = 10;
 
-    b.iter(move || {
-        let mut join = Vec::with_capacity(batch_size);
-        let mut n = 0;
+    b.iter(|| {
+        let circuit_breaker = circuit_breaker.clone();
 
-        for _ in 0..batch_size {
-            let circuit_breaker = circuit_breaker.clone();
+        let batch = (0..batch_size).map(move |n| {
+            circuit_breaker
+                .call(dangerous_call(n))
+                .then(|res| match res {
+                    Ok(n) => Ok(n),
+                    Err(Error::Inner(n)) => Ok(n),
+                    Err(Error::Rejected) => Err(0),
+                })
+        });
 
-            let (tx, rx) = channel();
-            join.push(rx);
+        let batch = stream::iter_ok(batch)
+            .buffer_unordered(batch_size)
+            .collect();
 
-            runtime.spawn(
-                circuit_breaker_call(&circuit_breaker, n)
-                    .then(move |_| tx.send(()).map_err(|_| ())),
-            );
-            n += 1;
-        }
-
-        for it in join {
-            it.recv().unwrap();
-        }
+        let mut runtime = runtime.borrow_mut();
+        let res = runtime.block_on(batch).unwrap();
+        assert_eq!(45usize, res.iter().sum());
     });
 }
 
-fn circuit_breaker_call<C: Callable>(call: &C, n: u64) -> impl Future<Item = (), Error = ()> {
-    let future = call.call(dangerous_call(n));
-    Future::then(future, |res| match res {
-        Err(Error::Rejected) => {
-            panic!("rejected");
-        }
-        Err(err) => {
-            test::black_box(err);
-            Ok(())
-        }
-        Ok(ok) => {
-            test::black_box(ok);
-            Ok(())
+fn dangerous_call(n: usize) -> impl Future<Item = usize, Error = usize> {
+    future::lazy(move || {
+        if n % 5 == 0 {
+            test::black_box(future::err(n))
+        } else {
+            test::black_box(future::ok(n))
         }
     })
-}
-
-fn dangerous_call(n: u64) -> impl Future<Item = (), Error = ()> {
-    if n % 10 == 0 {
-        future::err(())
-    } else {
-        future::ok(())
-    }
 }
