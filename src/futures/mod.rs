@@ -241,7 +241,7 @@ mod tests {
 
     use lib_futures::future;
     use tokio::runtime::Runtime;
-    use tokio_timer::Delay;
+    use tokio::timer::Delay;
 
     use super::*;
 
