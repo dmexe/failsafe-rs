@@ -15,10 +15,12 @@
 //!
 //! // A function that sometimes failed.
 //! fn dangerous_call() -> impl Future<Item = (), Error = ()> {
-//!   if thread_rng().gen_range(0, 2) == 0 {
-//!     return future::err(())
-//!   }
-//!   future::ok(())
+//!   future::lazy(|| {
+//!     if thread_rng().gen_range(0, 2) == 0 {
+//!       return Err(())
+//!     }
+//!     Ok(())
+//!   })
 //! }
 //!
 //! // Create a circuit breaker which configured by reasonable default backoff and
