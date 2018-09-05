@@ -56,7 +56,7 @@
 //! use std::time::Duration;
 //! use failsafe::{backoff, failure_policy, CircuitBreaker};
 //!
-//! // Create an exponential growth backoff which starts from 5s and ends with 60s.
+//! // Create an exponential growth backoff which starts from 10s and ends with 60s.
 //! let backoff = backoff::exponential(Duration::from_secs(10), Duration::from_secs(60));
 //!
 //! // Create a policy which failed when three consecutive failures were made.
