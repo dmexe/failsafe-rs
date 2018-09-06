@@ -12,14 +12,15 @@ impl MockClock {
     }
 
     pub fn now(&self) -> Instant {
-        self.0.clone()
+        self.0
     }
 
     pub fn advance(&mut self, diff: Duration) {
-        self.0 = self.0 + diff
+        self.0 += diff
     }
 }
 
+#[cfg(test)]
 pub fn freeze<F, R>(f: F) -> R
 where
     F: FnOnce(&mut MockClock) -> R,
