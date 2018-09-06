@@ -25,7 +25,7 @@
 //!
 //! // Create a circuit breaker which configured by reasonable default backoff and
 //! // failure accrual policy.
-//! let circuit_breaker = CircuitBreaker::builder().build();
+//! let circuit_breaker = CircuitBreaker::default();
 //!
 //! // Wraps `dangerous_call` result future within circuit breaker.
 //! let future = circuit_breaker.call(dangerous_call());
@@ -103,6 +103,20 @@ impl CircuitBreaker<(), ()> {
         Tag,
     > {
         Config::new()
+    }
+}
+
+impl Default
+    for CircuitBreaker<
+        failure_policy::OrElse<
+            SuccessRateOverTimeWindow<backoff::EqualJittered>,
+            ConsecutiveFailures<backoff::EqualJittered>,
+        >,
+        NoopInstrument,
+    >
+{
+    fn default() -> Self {
+        CircuitBreaker::builder().build()
     }
 }
 
