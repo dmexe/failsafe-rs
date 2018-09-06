@@ -50,7 +50,7 @@ fn dangerous_call() -> Result<(), ()> {
 
 // Create a circuit breaker which configured by reasonable default backoff and
 // failure accrual policy.
-let circuit_breaker = CircuitBreaker::builder().build();
+let circuit_breaker = CircuitBreaker::default();
 
 // Call the function in a loop, after some iterations the circuit breaker will
 // be in a open state and reject next calls.
@@ -84,6 +84,5 @@ let policy = failure_policy::consecutive_failures(3, backoff);
 let circuit_breaker = CircuitBreaker::builder()
   .failure_policy(policy)
   .build();
-
 ```
 

@@ -56,6 +56,20 @@ impl CircuitBreaker<(), ()> {
     }
 }
 
+impl Default
+    for CircuitBreaker<
+        failure_policy::OrElse<
+            SuccessRateOverTimeWindow<backoff::EqualJittered>,
+            ConsecutiveFailures<backoff::EqualJittered>,
+        >,
+        NoopInstrument,
+    >
+{
+    fn default() -> Self {
+        CircuitBreaker::builder().build()
+    }
+}
+
 impl<POLICY, INSTRUMENT> CircuitBreaker<POLICY, INSTRUMENT>
 where
     POLICY: FailurePolicy,
