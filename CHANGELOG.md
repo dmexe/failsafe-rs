@@ -1,3 +1,5 @@
 ### UNRELEASED
 
-* remove `tokio-timer` dependency. 
+* `success_rate` policy now accepts `min_request_threshold`.
+* remove `tokio-timer` dependency.
+

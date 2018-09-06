@@ -86,7 +86,7 @@ mod ema;
 mod error;
 mod failure_predicate;
 mod state_machine;
-mod token_bucket;
+mod windowed_adder;
 
 pub mod backoff;
 pub mod failure_policy;

@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 use super::backoff;
 use super::clock;
 use super::ema::Ema;
+use super::windowed_adder::WindowedAdder;
 
 static DEFAULT_BACKOFF: Duration = Duration::from_secs(300);
 
@@ -15,6 +16,7 @@ const MILLIS_PER_SECOND: u64 = 1_000;
 const DEFAULT_SUCCESS_RATE_THRESHOLD: f64 = 0.8;
 const DEFAULT_SUCCESS_RATE_WINDOW_SECONDS: u64 = 30;
 const DEFAULT_CONSECUTIVE_FAILURES: u32 = 5;
+const DEFAULT_MINIMUM_REQUEST_THRESHOLD: u32 = 5;
 
 /// A `FailurePolicy` is used to determine whether or not the backend died.
 pub trait FailurePolicy {
@@ -50,8 +52,10 @@ pub trait FailurePolicy {
 /// See `ema::Ema` for how the success rate is computed.
 ///
 /// * `required_success_rate` - a success rate that must be met.
-/// * `window` - window over which the success rate is tracked.  `mark_dead_on_failure` will return
-///   None, until we get requests for a duration of at least `window`.
+/// * `min_request_threshold` - minimum number of requests in the past `window`
+///   for `mark_dead_on_failure` to return a duration.
+/// * `window` - window over which the success rate is tracked.  `mark_dead_on_failure`
+///   will return None, until we get requests for a duration of at least `window`.
 /// * `backoff` - stream of durations to use for the next duration
 ///   returned from `mark_dead_on_failure`
 ///
@@ -60,6 +64,7 @@ pub trait FailurePolicy {
 /// When `required_success_rate` isn't in `[0.0, 0.1]` interval.
 pub fn success_rate_over_time_window<BACKOFF>(
     required_success_rate: f64,
+    min_request_threshold: u32,
     window: Duration,
     backoff: BACKOFF,
 ) -> SuccessRateOverTimeWindow<BACKOFF>
@@ -73,14 +78,17 @@ where
     );
 
     let window_millis = window.as_secs() * MILLIS_PER_SECOND;
+    let request_counter = WindowedAdder::new(window, 5);
 
     SuccessRateOverTimeWindow {
         required_success_rate,
+        min_request_threshold,
         ema: Ema::new(window_millis),
         now: clock::now(),
         window_millis,
         backoff: backoff.clone(),
         fresh_backoff: backoff,
+        request_counter,
     }
 }
 
@@ -110,7 +118,12 @@ impl Default for SuccessRateOverTimeWindow<backoff::EqualJittered> {
     fn default() -> Self {
         let backoff = backoff::equal_jittered(Duration::from_secs(10), Duration::from_secs(300));
         let window = Duration::from_secs(DEFAULT_SUCCESS_RATE_WINDOW_SECONDS);
-        success_rate_over_time_window(DEFAULT_SUCCESS_RATE_THRESHOLD, window, backoff)
+        success_rate_over_time_window(
+            DEFAULT_SUCCESS_RATE_THRESHOLD,
+            DEFAULT_MINIMUM_REQUEST_THRESHOLD,
+            window,
+            backoff,
+        )
     }
 }
 
@@ -127,11 +140,13 @@ impl Default for ConsecutiveFailures<backoff::EqualJittered> {
 #[derive(Debug)]
 pub struct SuccessRateOverTimeWindow<BACKOFF> {
     required_success_rate: f64,
+    min_request_threshold: u32,
     ema: Ema,
     now: Instant,
     window_millis: u64,
     backoff: BACKOFF,
     fresh_backoff: BACKOFF,
+    request_counter: WindowedAdder,
 }
 
 impl<BACKOFF> SuccessRateOverTimeWindow<BACKOFF>
@@ -146,8 +161,10 @@ where
 
     /// We can trigger failure accrual if the `window` has passed, success rate is below
     /// `required_success_rate`.
-    fn can_remove(&self, success_rate: f64) -> bool {
-        self.elapsed_millis() >= self.window_millis && success_rate < self.required_success_rate
+    fn can_remove(&mut self, success_rate: f64) -> bool {
+        self.elapsed_millis() >= self.window_millis
+            && success_rate < self.required_success_rate
+            && self.request_counter.sum() >= i64::from(self.min_request_threshold)
     }
 }
 
@@ -159,10 +176,13 @@ where
     fn record_success(&mut self) {
         let timestamp = self.elapsed_millis();
         self.ema.update(timestamp, SUCCESS);
+        self.request_counter.add(1);
     }
 
     #[inline]
     fn mark_dead_on_failure(&mut self) -> Option<Duration> {
+        self.request_counter.add(1);
+
         let timestamp = self.elapsed_millis();
         let success_rate = self.ema.update(timestamp, FAILURE);
 
@@ -178,6 +198,7 @@ where
     fn revived(&mut self) {
         self.now = clock::now();
         self.ema.reset();
+        self.request_counter.reset();
         self.backoff = self.fresh_backoff.clone();
     }
 }
@@ -321,8 +342,12 @@ mod tests {
             clock::freeze(|time| {
                 let exp_backoff = exp_backoff();
                 let success_rate_duration = 30.seconds();
-                let mut policy =
-                    success_rate_over_time_window(0.5, success_rate_duration, exp_backoff.clone());
+                let mut policy = success_rate_over_time_window(
+                    0.5,
+                    1,
+                    success_rate_duration,
+                    exp_backoff.clone(),
+                );
 
                 assert_eq!(None, policy.mark_dead_on_failure());
 
@@ -338,12 +363,32 @@ mod tests {
         }
 
         #[test]
-        fn revived_resets_failures() {
+        fn respects_rps_threshold() {
             clock::freeze(|time| {
                 let exp_backoff = exp_backoff();
+                let mut policy = success_rate_over_time_window(1.0, 5, 30.seconds(), exp_backoff);
+
+                time.advance(30.seconds());
+
+                assert_eq!(None, policy.mark_dead_on_failure());
+                assert_eq!(None, policy.mark_dead_on_failure());
+                assert_eq!(None, policy.mark_dead_on_failure());
+                assert_eq!(None, policy.mark_dead_on_failure());
+                assert_eq!(Some(5.seconds()), policy.mark_dead_on_failure());
+            });
+        }
+
+        #[test]
+        fn revived_resets_failures() {
+            clock::freeze(|time| {
+                let exp_backoff = constant_backoff();
                 let success_rate_duration = 30.seconds();
-                let mut policy =
-                    success_rate_over_time_window(0.5, success_rate_duration, exp_backoff.clone());
+                let mut policy = success_rate_over_time_window(
+                    0.5,
+                    1,
+                    success_rate_duration,
+                    exp_backoff.clone(),
+                );
 
                 time.advance(success_rate_duration);
                 for i in exp_backoff.take(6) {
@@ -367,8 +412,12 @@ mod tests {
             clock::freeze(|time| {
                 let exp_backoff = exp_backoff();
                 let success_rate_duration = 100.seconds();
-                let mut policy =
-                    success_rate_over_time_window(0.5, success_rate_duration, exp_backoff.clone());
+                let mut policy = success_rate_over_time_window(
+                    0.5,
+                    1,
+                    success_rate_duration,
+                    exp_backoff.clone(),
+                );
 
                 for _i in 0..100 {
                     time.advance(1.seconds());
@@ -395,7 +444,7 @@ mod tests {
         #[test]
         fn compose_policies() {
             let mut policy = consecutive_failures(3, constant_backoff()).or_else(
-                success_rate_over_time_window(0.5, 10.seconds(), constant_backoff()),
+                success_rate_over_time_window(0.5, 100, 10.seconds(), constant_backoff()),
             );
 
             policy.record_success();

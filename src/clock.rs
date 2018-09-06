@@ -20,6 +20,7 @@ impl MockClock {
     }
 }
 
+#[cfg(test)]
 pub fn freeze<F, R>(f: F) -> R
 where
     F: FnOnce(&mut MockClock) -> R,
