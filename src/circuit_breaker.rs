@@ -159,3 +159,63 @@ where
         CircuitBreaker::new(state_machine)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use super::super::backoff;
+    use super::super::failure_policy::consecutive_failures;
+    use super::*;
+
+    #[test]
+    fn call_with() {
+        let circuit_breaker = new_circuit_breaker();
+        let is_err = |err: &bool| !(*err);
+
+        for _ in 0..2 {
+            match circuit_breaker.call_with(is_err, || Err::<(), _>(true)) {
+                Err(Error::Inner(true)) => {}
+                x => unreachable!("{:?}", x),
+            }
+            assert_eq!(true, circuit_breaker.is_call_permitted());
+        }
+
+        match circuit_breaker.call_with(is_err, || Err::<(), _>(false)) {
+            Err(Error::Inner(false)) => {}
+            x => unreachable!("{:?}", x),
+        }
+        assert_eq!(false, circuit_breaker.is_call_permitted());
+    }
+
+    #[test]
+    fn call_ok() {
+        let circuit_breaker = new_circuit_breaker();
+
+        circuit_breaker.call(|| Ok::<_, ()>(())).unwrap();
+        assert_eq!(true, circuit_breaker.is_call_permitted());
+    }
+
+    #[test]
+    fn call_err() {
+        let circuit_breaker = new_circuit_breaker();
+
+        match circuit_breaker.call(|| Err::<(), _>(())) {
+            Err(Error::Inner(())) => {}
+            x => unreachable!("{:?}", x),
+        }
+        assert_eq!(false, circuit_breaker.is_call_permitted());
+
+        match circuit_breaker.call(|| Err::<(), _>(())) {
+            Err(Error::Rejected) => {}
+            x => unreachable!("{:?}", x),
+        }
+        assert_eq!(false, circuit_breaker.is_call_permitted());
+    }
+
+    fn new_circuit_breaker() -> impl Callable {
+        let backoff = backoff::constant(Duration::from_secs(5));
+        let policy = consecutive_failures(1, backoff);
+        CircuitBreaker::builder().failure_policy(policy).build()
+    }
+}
