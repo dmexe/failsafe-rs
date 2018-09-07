@@ -47,6 +47,11 @@ pub trait Callable {
     #[doc(hidden)]
     type Handle: Handle + Send;
 
+    /// Requests permission to call.
+    ///
+    /// It returns `true` if a call is allowed, or `false` if prohibited.
+    fn is_call_permitted(&self) -> bool;
+
     /// Executes a given future within circuit breaker.
     ///
     /// Depending on future result value, the call will be recorded as success or failure.
@@ -73,10 +78,16 @@ pub trait Callable {
         P: FailurePredicate<F::Error>;
 }
 
+#[derive(Debug)]
+#[doc(hidden)]
+pub struct Inner<POLICY, INSTRUMENT> {
+    state_machine: Mutex<StateMachine<POLICY, INSTRUMENT>>,
+}
+
 /// Future aware circuit breaker.
 #[derive(Debug)]
 pub struct CircuitBreaker<POLICY, INSTRUMENT> {
-    state_machine: Arc<Mutex<StateMachine<POLICY, INSTRUMENT>>>,
+    inner: Arc<Inner<POLICY, INSTRUMENT>>,
 }
 
 /// For internal use only.
@@ -127,33 +138,35 @@ where
 {
     fn new(state_machine: StateMachine<POLICY, INSTRUMENT>) -> Self {
         Self {
-            state_machine: Arc::new(Mutex::new(state_machine)),
+            inner: Arc::new(Inner {
+                state_machine: Mutex::new(state_machine),
+            }),
         }
     }
 }
 
-impl<POLICY, INSTRUMENT> Handle for Arc<Mutex<StateMachine<POLICY, INSTRUMENT>>>
+impl<POLICY, INSTRUMENT> Handle for Arc<Inner<POLICY, INSTRUMENT>>
 where
     POLICY: FailurePolicy + Send + 'static,
     INSTRUMENT: Instrument + Send + 'static,
 {
     #[inline]
     fn is_call_permitted(&self) -> bool {
-        let mut state_machine = self.lock().unwrap();
+        let mut state_machine = self.state_machine.lock().unwrap();
         state_machine.is_call_permitted()
     }
 
     /// Invoked after success call.
     #[inline]
     fn on_success(&self) {
-        let mut state_machine = self.lock().unwrap();
+        let mut state_machine = self.state_machine.lock().unwrap();
         state_machine.on_success();
     }
 
     /// Invoked after failed call.
     #[inline]
     fn on_error(&self) {
-        let mut state_machine = self.lock().unwrap();
+        let mut state_machine = self.state_machine.lock().unwrap();
         state_machine.on_error();
     }
 }
@@ -163,7 +176,12 @@ where
     POLICY: FailurePolicy + Send + 'static,
     INSTRUMENT: Instrument + Send + 'static,
 {
-    type Handle = Arc<Mutex<StateMachine<POLICY, INSTRUMENT>>>;
+    type Handle = Arc<Inner<POLICY, INSTRUMENT>>;
+
+    #[inline]
+    fn is_call_permitted(&self) -> bool {
+        self.inner.is_call_permitted()
+    }
 
     #[inline]
     fn call_with<F, P>(&self, predicate: P, f: F) -> FutureResult<F, Self::Handle, P>
@@ -175,7 +193,7 @@ where
     {
         FutureResult {
             future: f,
-            handle: self.state_machine.clone(),
+            handle: self.inner.clone(),
             predicate,
             once: true,
         }
@@ -229,7 +247,7 @@ where
 impl<POLICY, INSTRUMENT> Clone for CircuitBreaker<POLICY, INSTRUMENT> {
     fn clone(&self) -> Self {
         Self {
-            state_machine: self.state_machine.clone(),
+            inner: self.inner.clone(),
         }
     }
 }
@@ -262,48 +280,61 @@ mod tests {
     use super::*;
 
     #[test]
-    fn future_ok() {
+    fn call_ok() {
         let mut runtime = Runtime::new().unwrap();
         let circuit_breaker = new_circuit_breaker();
         let future = Delay::new(Instant::now() + Duration::from_millis(100));
         let future = circuit_breaker.call(future);
 
         runtime.block_on(future).unwrap();
+        assert_eq!(true, circuit_breaker.is_call_permitted());
     }
 
     #[test]
-    fn future_err() {
+    fn call_err() {
         let mut runtime = Runtime::new().unwrap();
         let circuit_breaker = new_circuit_breaker();
+
         let future = future::lazy(|| Err::<(), ()>(()));
         let future = circuit_breaker.call(future);
-
         match runtime.block_on(future) {
             Err(Error::Inner(_)) => {}
             err => unreachable!("{:?}", err),
         }
-    }
-
-    #[test]
-    fn future_rejected() {
-        let mut runtime = Runtime::new().unwrap();
-        let circuit_breaker = new_circuit_breaker();
-
-        match circuit_breaker
-            .call(future::lazy(|| Err::<(), ()>(())))
-            .poll()
-        {
-            Err(Error::Inner(_)) => {}
-            err => unreachable!("{:?}", err),
-        }
+        assert_eq!(false, circuit_breaker.is_call_permitted());
 
         let future = Delay::new(Instant::now() + Duration::from_secs(1));
         let future = circuit_breaker.call(future);
-
         match runtime.block_on(future) {
             Err(Error::Rejected) => {}
             err => unreachable!("{:?}", err),
         }
+        assert_eq!(false, circuit_breaker.is_call_permitted());
+    }
+
+    #[test]
+    fn call_with() {
+        let mut runtime = Runtime::new().unwrap();
+        let circuit_breaker = new_circuit_breaker();
+        let is_err = |err: &bool| !(*err);
+
+        for _ in 0..2 {
+            let future = future::lazy(|| Err::<(), _>(true));
+            let future = circuit_breaker.call_with(is_err, future);
+            match runtime.block_on(future) {
+                Err(Error::Inner(true)) => {}
+                err => unreachable!("{:?}", err),
+            }
+            assert_eq!(true, circuit_breaker.is_call_permitted());
+        }
+
+        let future = future::lazy(|| Err::<(), _>(false));
+        let future = circuit_breaker.call_with(is_err, future);
+        match runtime.block_on(future) {
+            Err(Error::Inner(false)) => {}
+            err => unreachable!("{:?}", err),
+        }
+        assert_eq!(false, circuit_breaker.is_call_permitted());
     }
 
     fn new_circuit_breaker() -> impl Callable {
