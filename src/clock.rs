@@ -11,16 +11,17 @@ impl MockClock {
         MockClock(Instant::now())
     }
 
+    #[inline]
     pub fn now(&self) -> Instant {
         self.0
     }
 
+    #[inline]
     pub fn advance(&mut self, diff: Duration) {
         self.0 += diff
     }
 }
 
-#[cfg(test)]
 pub fn freeze<F, R>(f: F) -> R
 where
     F: FnOnce(&mut MockClock) -> R,
@@ -51,6 +52,7 @@ where
     })
 }
 
+#[inline]
 pub fn now() -> Instant {
     CLOCK.with(|current| match current.get() {
         Some(ptr) => unsafe { (*ptr).now() },

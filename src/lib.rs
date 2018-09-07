@@ -80,7 +80,6 @@ extern crate rand;
 extern crate tokio;
 
 mod circuit_breaker;
-mod clock;
 mod config;
 mod ema;
 mod error;
@@ -92,9 +91,12 @@ pub mod backoff;
 pub mod failure_policy;
 pub mod futures;
 
+#[doc(hidden)]
+pub mod clock;
+
 pub use self::circuit_breaker::{Callable, CircuitBreaker};
 pub use self::config::Config;
 pub use self::error::Error;
 pub use self::failure_policy::FailurePolicy;
 pub use self::failure_predicate::FailurePredicate;
-pub use self::state_machine::{Instrument, StateMachine};
+pub use self::state_machine::{Instrument, NoopInstrument, StateMachine};
