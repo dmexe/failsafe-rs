@@ -1,12 +1,16 @@
-use std::fmt::{self, Display};
+use std::fmt::{self, Debug};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
+
+use spin::Mutex;
 
 use super::clock;
 use super::failure_policy::FailurePolicy;
+use super::instrument::Instrument;
 
 /// States of the state machine.
-#[derive(Clone, Debug)]
-pub enum State {
+#[derive(Debug)]
+enum State {
     /// A closed breaker is operating normally and allowing.
     Closed,
     /// An open breaker has tripped and will not allow requests through until an interval expired.
@@ -14,6 +18,21 @@ pub enum State {
     /// A half open breaker has completed its wait interval and will allow requests. The state keeps
     /// the previous duration in an open state.
     HalfOpen(Duration),
+}
+
+const ON_CLOSED: u8 = 0b0000_0001;
+const ON_HALF_OPEN: u8 = 0b0000_0010;
+const ON_REJECTED: u8 = 0b0000_0100;
+const ON_OPEN: u8 = 0b0000_1000;
+
+struct Shared<POLICY> {
+    state: State,
+    failure_policy: POLICY,
+}
+
+struct Inner<POLICY, INSTRUMENT> {
+    shared: Mutex<Shared<POLICY>>,
+    instrument: INSTRUMENT,
 }
 
 /// A circuit breaker' state machine.
@@ -31,40 +50,8 @@ pub enum State {
 /// calls to see if the backend is still unavailable or has become available again. If the circuit
 /// breaker receives a failure on the next call, the state will change back to `Open`. Otherwise
 /// it changes to `Closed`.
-#[derive(Debug)]
 pub struct StateMachine<POLICY, INSTRUMENT> {
-    failure_policy: POLICY,
-    instrument: INSTRUMENT,
-    state: State,
-}
-
-/// Consumes the state machine events. May used for metrics and/or logs.
-pub trait Instrument {
-    /// Calls when state machine reject a call.
-    fn on_call_rejected(&self);
-
-    /// Calls when the circuit breaker become to open state.
-    fn on_open(&self, duration: &Duration);
-
-    /// Calls when the circuit breaker become to half open state.
-    fn on_half_open(&self);
-
-    /// Calls when the circuit breaker become to closed state.
-    fn on_closed(&self);
-}
-
-/// An instrumentation which does noting.
-#[derive(Debug)]
-pub struct NoopInstrument;
-
-impl Instrument for NoopInstrument {
-    fn on_call_rejected(&self) {}
-
-    fn on_open(&self, _: &Duration) {}
-
-    fn on_half_open(&self) {}
-
-    fn on_closed(&self) {}
+    inner: Arc<Inner<POLICY, INSTRUMENT>>,
 }
 
 impl State {
@@ -79,9 +66,34 @@ impl State {
     }
 }
 
-impl Display for State {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "{}", self.as_str())
+impl<POLICY, INSTRUMENT> Debug for StateMachine<POLICY, INSTRUMENT> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let shared = self.inner.shared.lock();
+        f.debug_struct("StateMachine")
+            .field("state", &(shared.state.as_str()))
+            .finish()
+    }
+}
+
+impl<POLICY> Shared<POLICY>
+where
+    POLICY: FailurePolicy,
+{
+    #[inline]
+    fn transit_to_closed(&mut self) {
+        self.state = State::Closed;
+        self.failure_policy.revived();
+    }
+
+    #[inline]
+    fn transit_to_half_open(&mut self, delay: Duration) {
+        self.state = State::HalfOpen(delay);
+    }
+
+    #[inline]
+    fn transit_to_open(&mut self, delay: Duration) {
+        let until = clock::now() + delay;
+        self.state = State::Open(until, delay);
     }
 }
 
@@ -92,81 +104,105 @@ where
 {
     /// Creates a new state machine with given failure policy and instrument.
     pub fn new(failure_policy: POLICY, instrument: INSTRUMENT) -> Self {
+        instrument.on_closed();
+
         StateMachine {
-            failure_policy,
-            instrument,
-            state: State::Closed,
+            inner: Arc::new(Inner {
+                shared: Mutex::new(Shared {
+                    state: State::Closed,
+                    failure_policy,
+                }),
+                instrument,
+            }),
         }
     }
 
     /// Requests permission to call this circuit breaker's backend.
-    pub fn is_call_permitted(&mut self) -> bool {
-        match self.state {
-            State::Closed => true,
-            State::HalfOpen(_) => true,
-            State::Open(until, delay) => {
-                if clock::now() > until {
-                    self.transit_to_half_open(delay);
-                    return true;
+    pub fn is_call_permitted(&self) -> bool {
+        let mut instrument: u8 = 0;
+
+        let res = {
+            let mut shared = self.inner.shared.lock();
+
+            match shared.state {
+                State::Closed => true,
+                State::HalfOpen(_) => true,
+                State::Open(until, delay) => {
+                    if clock::now() > until {
+                        shared.transit_to_half_open(delay);
+                        instrument |= ON_HALF_OPEN;
+                        true
+                    } else {
+                        instrument |= ON_REJECTED;
+                        false
+                    }
                 }
-                self.instrument.on_call_rejected();
-                false
             }
+        };
+
+        if instrument & ON_HALF_OPEN != 0 {
+            self.inner.instrument.on_half_open();
         }
+
+        if instrument & ON_REJECTED != 0 {
+            self.inner.instrument.on_call_rejected();
+        }
+
+        res
     }
 
     /// Records a successful call.
     ///
     /// This method must be invoked when a call was success.
     pub fn on_success(&mut self) {
-        if let State::HalfOpen(_) = self.state {
-            self.reset();
+        let mut instrument: u8 = 0;
+
+        {
+            let mut shared = self.inner.shared.lock();
+            if let State::HalfOpen(_) = shared.state {
+                shared.transit_to_closed();
+                instrument |= ON_CLOSED;
+            }
+            shared.failure_policy.record_success()
         }
-        self.failure_policy.record_success()
+
+        if instrument & ON_CLOSED != 0 {
+            self.inner.instrument.on_closed();
+        }
     }
 
     /// Records a failed call.
     ///
     /// This method must be invoked when a call failed.
     pub fn on_error(&mut self) {
-        match self.state {
-            State::Closed => {
-                if let Some(delay) = self.failure_policy.mark_dead_on_failure() {
-                    self.transit_to_open(delay);
+        let mut instrument: u8 = 0;
+
+        {
+            let mut shared = self.inner.shared.lock();
+            match shared.state {
+                State::Closed => {
+                    if let Some(delay) = shared.failure_policy.mark_dead_on_failure() {
+                        shared.transit_to_open(delay);
+                        instrument |= ON_OPEN;
+                    }
                 }
+                State::HalfOpen(delay_in_half_open) => {
+                    // Pick up the next open state's delay from the policy, if policy returns Some(_)
+                    // use it, otherwise reuse the delay from the current state.
+                    let delay = shared
+                        .failure_policy
+                        .mark_dead_on_failure()
+                        .unwrap_or(delay_in_half_open);
+                    shared.transit_to_open(delay);
+                    instrument |= ON_OPEN;
+                }
+                _ => {}
             }
-            State::HalfOpen(delay_in_half_open) => {
-                // Pick up the next open state's delay from the policy, if policy returns Some(_)
-                // use it, otherwise reuse the delay from the current state.
-                let delay = self
-                    .failure_policy
-                    .mark_dead_on_failure()
-                    .unwrap_or(delay_in_half_open);
-                self.transit_to_open(delay);
-            }
-            _ => {}
         }
-    }
 
-    /// Returns the circuit breaker to its original closed state, losing statistics.
-    #[inline]
-    pub fn reset(&mut self) {
-        self.state = State::Closed;
-        self.failure_policy.revived();
-        self.instrument.on_closed();
-    }
-
-    #[inline]
-    fn transit_to_half_open(&mut self, delay: Duration) {
-        self.state = State::HalfOpen(delay);
-        self.instrument.on_half_open();
-    }
-
-    #[inline]
-    fn transit_to_open(&mut self, delay: Duration) {
-        let until = clock::now() + delay;
-        self.state = State::Open(until, delay);
-        self.instrument.on_open(&delay);
+        if instrument & ON_OPEN != 0 {
+            self.inner.instrument.on_open();
+        }
     }
 }
 
@@ -308,8 +344,8 @@ mod tests {
             self.rejected_calls.fetch_add(1, Ordering::SeqCst);
         }
 
-        fn on_open(&self, duration: &Duration) {
-            println!("state=open for {:?}", duration);
+        fn on_open(&self) {
+            println!("state=open");
             let mut own_state = self.state.lock().unwrap();
             *own_state = State::Open
         }

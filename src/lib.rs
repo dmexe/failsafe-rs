@@ -75,6 +75,7 @@
 
 extern crate futures as lib_futures;
 extern crate rand;
+extern crate spin;
 
 #[cfg(test)]
 extern crate tokio;
@@ -84,6 +85,7 @@ mod config;
 mod ema;
 mod error;
 mod failure_predicate;
+mod instrument;
 mod state_machine;
 mod windowed_adder;
 
@@ -99,4 +101,5 @@ pub use self::config::Config;
 pub use self::error::Error;
 pub use self::failure_policy::FailurePolicy;
 pub use self::failure_predicate::FailurePredicate;
-pub use self::state_machine::{Instrument, NoopInstrument, StateMachine};
+pub use self::instrument::{Instrument, NoopInstrument};
+pub use self::state_machine::StateMachine;

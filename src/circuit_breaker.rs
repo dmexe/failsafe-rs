@@ -5,7 +5,8 @@ use super::config::{Config, IntoCircuitBreaker};
 use super::error::Error;
 use super::failure_policy::{self, ConsecutiveFailures, FailurePolicy, SuccessRateOverTimeWindow};
 use super::failure_predicate::{self, FailurePredicate};
-use super::state_machine::{Instrument, NoopInstrument, StateMachine};
+use super::instrument::{Instrument, NoopInstrument};
+use super::state_machine::StateMachine;
 
 /// TODO.
 #[derive(Debug)]

@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use super::backoff;
 use super::failure_policy::{self, ConsecutiveFailures, FailurePolicy, SuccessRateOverTimeWindow};
-use super::state_machine::{Instrument, NoopInstrument};
+use super::instrument::{Instrument, NoopInstrument};
 
 /// A `CircuitBreaker`'s configuration.
 #[derive(Debug)]

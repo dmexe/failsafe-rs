@@ -40,7 +40,8 @@ use super::config::{Config, IntoCircuitBreaker};
 use super::error::Error;
 use super::failure_policy::{self, ConsecutiveFailures, FailurePolicy, SuccessRateOverTimeWindow};
 use super::failure_predicate::{self, FailurePredicate};
-use super::state_machine::{Instrument, NoopInstrument, StateMachine};
+use super::instrument::{Instrument, NoopInstrument};
+use super::state_machine::StateMachine;
 
 /// A futures aware circuit breaker's public interface.
 pub trait Callable {
@@ -174,7 +175,7 @@ where
 impl<POLICY, INSTRUMENT> Callable for CircuitBreaker<POLICY, INSTRUMENT>
 where
     POLICY: FailurePolicy + Send + 'static,
-    INSTRUMENT: Instrument + Send + 'static,
+    INSTRUMENT: Instrument + Send + Sync + 'static,
 {
     type Handle = Arc<Inner<POLICY, INSTRUMENT>>;
 
