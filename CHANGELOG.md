@@ -1,4 +1,4 @@
-### UNRELEASED
+### 0.2.0
 
 Breaking changes:
 * `success_rate` policy now accepts `min_request_threshold`.
@@ -7,3 +7,4 @@ Breaking changes:
 
 Improvements:
 * remove `tokio-timer` dependency.
+* use spin lock instead `std::sync::Mutex`
