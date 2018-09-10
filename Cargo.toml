@@ -9,6 +9,7 @@ repository = "https://github.com/dmexe/failsafe-rs"
 [dependencies]
 futures = "0.1"
 rand = "0.5"
+spin = { version = "0.4", default-features = false }
 
 [dev-dependencies]
 tokio = "0.1.8"

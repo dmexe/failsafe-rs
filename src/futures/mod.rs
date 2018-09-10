@@ -11,7 +11,8 @@
 //! # use rand::{thread_rng, Rng};
 //!
 //! use futures::{future, Future};
-//! use failsafe::futures::{CircuitBreaker, Callable};
+//! use failsafe::Config;
+//! use failsafe::futures::CircuitBreaker;
 //!
 //! // A function that sometimes failed.
 //! fn dangerous_call() -> impl Future<Item = (), Error = ()> {
@@ -25,27 +26,26 @@
 //!
 //! // Create a circuit breaker which configured by reasonable default backoff and
 //! // failure accrual policy.
-//! let circuit_breaker = CircuitBreaker::default();
+//! let circuit_breaker = Config::new().build();
 //!
 //! // Wraps `dangerous_call` result future within circuit breaker.
 //! let future = circuit_breaker.call(dangerous_call());
 //! let result = future.wait();
 
-use std::sync::{Arc, Mutex};
-
 use lib_futures::{Async, Future, Poll};
 
-use super::backoff;
-use super::config::{Config, IntoCircuitBreaker};
 use super::error::Error;
-use super::failure_policy::{self, ConsecutiveFailures, FailurePolicy, SuccessRateOverTimeWindow};
+use super::failure_policy::FailurePolicy;
 use super::failure_predicate::{self, FailurePredicate};
-use super::state_machine::{Instrument, NoopInstrument, StateMachine};
+use super::instrument::Instrument;
+use super::state_machine::StateMachine;
 
 /// A futures aware circuit breaker's public interface.
-pub trait Callable {
+pub trait CircuitBreaker {
     #[doc(hidden)]
-    type Handle: Handle + Send;
+    type FailurePolicy: FailurePolicy + Send + Sync;
+    #[doc(hidden)]
+    type Instrument: Instrument + Send + Sync;
 
     /// Requests permission to call.
     ///
@@ -56,11 +56,12 @@ pub trait Callable {
     ///
     /// Depending on future result value, the call will be recorded as success or failure.
     #[inline]
-    fn call<F>(&self, f: F) -> FutureResult<F, Self::Handle, failure_predicate::Any>
+    fn call<F>(
+        &self,
+        f: F,
+    ) -> ResponseFuture<F, Self::FailurePolicy, Self::Instrument, failure_predicate::Any>
     where
         F: Future,
-        F::Item: Send + 'static,
-        F::Error: Send + 'static,
     {
         self.call_with(failure_predicate::Any, f)
     }
@@ -68,204 +69,104 @@ pub trait Callable {
     /// Executes a given future within circuit breaker.
     ///
     /// Depending on future result value, the call will be recorded as success or failure.
-    /// It also checks error by the provided predicate. If the predicate returns `true` for the
+    /// It checks error by the provided predicate. If the predicate returns `true` for the
     /// error, the call is recorded as failure otherwise considered this error as a success.
-    fn call_with<F, P>(&self, predicate: P, f: F) -> FutureResult<F, Self::Handle, P>
+    fn call_with<F, P>(
+        &self,
+        predicate: P,
+        f: F,
+    ) -> ResponseFuture<F, Self::FailurePolicy, Self::Instrument, P>
     where
         F: Future,
-        F::Item: Send + 'static,
-        F::Error: Send + 'static,
         P: FailurePredicate<F::Error>;
 }
 
-#[derive(Debug)]
-#[doc(hidden)]
-pub struct Inner<POLICY, INSTRUMENT> {
-    state_machine: Mutex<StateMachine<POLICY, INSTRUMENT>>,
-}
-
-/// Future aware circuit breaker.
-#[derive(Debug)]
-pub struct CircuitBreaker<POLICY, INSTRUMENT> {
-    inner: Arc<Inner<POLICY, INSTRUMENT>>,
-}
-
-/// For internal use only.
-#[doc(hidden)]
-pub trait Handle {
-    /// Requests permission to call this circuit breaker's backend.
-    fn is_call_permitted(&self) -> bool;
-
-    /// Invoked after success call.
-    fn on_success(&self);
-
-    /// Invoked after failed call.
-    fn on_error(&self);
-}
-
-impl CircuitBreaker<(), ()> {
-    /// Returns a circuit breaker's builder.
-    pub fn builder() -> Config<
-        failure_policy::OrElse<
-            SuccessRateOverTimeWindow<backoff::EqualJittered>,
-            ConsecutiveFailures<backoff::EqualJittered>,
-        >,
-        NoopInstrument,
-        Tag,
-    > {
-        Config::new()
-    }
-}
-
-impl Default
-    for CircuitBreaker<
-        failure_policy::OrElse<
-            SuccessRateOverTimeWindow<backoff::EqualJittered>,
-            ConsecutiveFailures<backoff::EqualJittered>,
-        >,
-        NoopInstrument,
-    >
-{
-    fn default() -> Self {
-        CircuitBreaker::builder().build()
-    }
-}
-
-impl<POLICY, INSTRUMENT> CircuitBreaker<POLICY, INSTRUMENT>
+impl<POLICY, INSTRUMENT> CircuitBreaker for StateMachine<POLICY, INSTRUMENT>
 where
-    POLICY: FailurePolicy + Send + 'static,
-    INSTRUMENT: Instrument + Send + 'static,
+    POLICY: FailurePolicy + Send + Sync,
+    INSTRUMENT: Instrument + Send + Sync,
 {
-    fn new(state_machine: StateMachine<POLICY, INSTRUMENT>) -> Self {
-        Self {
-            inner: Arc::new(Inner {
-                state_machine: Mutex::new(state_machine),
-            }),
-        }
-    }
-}
-
-impl<POLICY, INSTRUMENT> Handle for Arc<Inner<POLICY, INSTRUMENT>>
-where
-    POLICY: FailurePolicy + Send + 'static,
-    INSTRUMENT: Instrument + Send + 'static,
-{
-    #[inline]
-    fn is_call_permitted(&self) -> bool {
-        let mut state_machine = self.state_machine.lock().unwrap();
-        state_machine.is_call_permitted()
-    }
-
-    /// Invoked after success call.
-    #[inline]
-    fn on_success(&self) {
-        let mut state_machine = self.state_machine.lock().unwrap();
-        state_machine.on_success();
-    }
-
-    /// Invoked after failed call.
-    #[inline]
-    fn on_error(&self) {
-        let mut state_machine = self.state_machine.lock().unwrap();
-        state_machine.on_error();
-    }
-}
-
-impl<POLICY, INSTRUMENT> Callable for CircuitBreaker<POLICY, INSTRUMENT>
-where
-    POLICY: FailurePolicy + Send + 'static,
-    INSTRUMENT: Instrument + Send + 'static,
-{
-    type Handle = Arc<Inner<POLICY, INSTRUMENT>>;
+    type FailurePolicy = POLICY;
+    type Instrument = INSTRUMENT;
 
     #[inline]
     fn is_call_permitted(&self) -> bool {
-        self.inner.is_call_permitted()
+        self.is_call_permitted()
     }
 
     #[inline]
-    fn call_with<F, P>(&self, predicate: P, f: F) -> FutureResult<F, Self::Handle, P>
+    fn call_with<F, P>(
+        &self,
+        predicate: P,
+        f: F,
+    ) -> ResponseFuture<F, Self::FailurePolicy, Self::Instrument, P>
     where
         F: Future,
-        F::Item: Send + 'static,
-        F::Error: Send + 'static,
         P: FailurePredicate<F::Error>,
     {
-        FutureResult {
+        ResponseFuture {
             future: f,
-            handle: self.inner.clone(),
+            state_machine: self.clone(),
             predicate,
-            once: true,
+            state: State::Request,
         }
     }
+}
+
+enum State {
+    Request,
+    Permitted,
+    Rejected,
 }
 
 /// A circuit breaker's future.
 #[allow(missing_debug_implementations)]
-pub struct FutureResult<FUT, HANDLE, PREDICATE> {
-    future: FUT,
-    handle: HANDLE,
+pub struct ResponseFuture<FUTURE, POLICY, INSTRUMENT, PREDICATE> {
+    future: FUTURE,
+    state_machine: StateMachine<POLICY, INSTRUMENT>,
     predicate: PREDICATE,
-    once: bool,
+    state: State,
 }
 
-impl<FUT, HANDLE, PREDICATE> Future for FutureResult<FUT, HANDLE, PREDICATE>
+impl<FUTURE, POLICY, INSTRUMENT, PREDICATE> Future
+    for ResponseFuture<FUTURE, POLICY, INSTRUMENT, PREDICATE>
 where
-    FUT: Future,
-    HANDLE: Handle,
-    PREDICATE: FailurePredicate<FUT::Error>,
+    FUTURE: Future,
+    POLICY: FailurePolicy,
+    INSTRUMENT: Instrument,
+    PREDICATE: FailurePredicate<FUTURE::Error>,
 {
-    type Item = FUT::Item;
-    type Error = Error<FUT::Error>;
+    type Item = FUTURE::Item;
+    type Error = Error<FUTURE::Error>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        if self.once {
-            self.once = false;
-
-            if !self.handle.is_call_permitted() {
-                return Err(Error::Rejected);
+        if let State::Request = self.state {
+            if self.state_machine.is_call_permitted() {
+                self.state = State::Permitted
+            } else {
+                self.state = State::Rejected
             }
+        }
+
+        if let State::Rejected = self.state {
+            return Err(Error::Rejected);
         }
 
         match self.future.poll() {
             Ok(Async::Ready(ok)) => {
-                self.handle.on_success();
+                self.state_machine.on_success();
                 Ok(Async::Ready(ok))
             }
             Ok(Async::NotReady) => Ok(Async::NotReady),
             Err(err) => {
                 if self.predicate.is_err(&err) {
-                    self.handle.on_error();
+                    self.state_machine.on_error();
                 } else {
-                    self.handle.on_success();
+                    self.state_machine.on_success();
                 }
                 Err(Error::Inner(err))
             }
         }
-    }
-}
-impl<POLICY, INSTRUMENT> Clone for CircuitBreaker<POLICY, INSTRUMENT> {
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-        }
-    }
-}
-
-#[doc(hidden)]
-#[derive(Debug)]
-pub struct Tag;
-
-impl<POLICY, INSTRUMENT> IntoCircuitBreaker for Config<POLICY, INSTRUMENT, Tag>
-where
-    POLICY: FailurePolicy + Send + 'static,
-    INSTRUMENT: Instrument + Send + 'static,
-{
-    type Output = CircuitBreaker<POLICY, INSTRUMENT>;
-
-    fn into_circuit_breaker(self) -> CircuitBreaker<POLICY, INSTRUMENT> {
-        let state_machine = StateMachine::new(self.failure_policy, self.instrument);
-        CircuitBreaker::new(state_machine)
     }
 }
 
@@ -277,6 +178,9 @@ mod tests {
     use tokio::runtime::Runtime;
     use tokio::timer::Delay;
 
+    use super::super::backoff;
+    use super::super::config::Config;
+    use super::super::failure_policy;
     use super::*;
 
     #[test]
@@ -337,9 +241,9 @@ mod tests {
         assert_eq!(false, circuit_breaker.is_call_permitted());
     }
 
-    fn new_circuit_breaker() -> impl Callable {
+    fn new_circuit_breaker() -> impl CircuitBreaker {
         let backoff = backoff::constant(Duration::from_secs(5));
         let policy = failure_policy::consecutive_failures(1, backoff);
-        CircuitBreaker::builder().failure_policy(policy).build()
+        Config::new().failure_policy(policy).build()
     }
 }
