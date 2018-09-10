@@ -5,7 +5,6 @@ use super::clock;
 /// Time windowed counter.
 #[derive(Debug)]
 pub struct WindowedAdder {
-    writer: i64,
     window: u64,
     slices: Vec<i64>,
     index: usize,
@@ -23,17 +22,15 @@ impl WindowedAdder {
     /// # Panics
     ///
     /// * When `slices` isn't in range [1;10].
-    /// * When `window` seconds is less then `slices`.
+    /// * When `window` in seconds is less then `slices`.
     pub fn new(window: Duration, slices: u8) -> Self {
         assert!(slices <= 10);
         assert!(slices > 1);
         assert!(window.as_secs() >= u64::from(slices));
 
         let window = to_millis(window) / u64::from(slices);
-        let slices = slices - 1;
 
         Self {
-            writer: 0,
             window,
             slices: vec![0; slices as usize],
             index: 0,
@@ -50,9 +47,6 @@ impl WindowedAdder {
             return;
         }
 
-        self.slices[self.index] = self.writer;
-        self.writer = 0;
-
         let len = self.slices.len();
         let mut idx = (self.index + 1) % len;
 
@@ -61,26 +55,27 @@ impl WindowedAdder {
             let r = n_skip.min((len - idx) as u64);
             self.zero_slices(idx, idx + r as usize);
             self.zero_slices(0usize, (n_skip - r) as usize);
-            idx = (idx + n_skip as usize) % len;
             //println!("zero {}-{} {}-{}", idx, idx + r as usize, 0, n_skip - r);
+            idx = (idx + n_skip as usize) % len;
         }
 
-        //println!("inc {} vec={:?}", idx, self.slices);
+        self.slices[idx] = 0;
         self.index = idx;
         self.elapsed = now;
+
+        //println!("inc {} vec={:?}", idx, self.slices);
     }
 
     /// Resets state of the counter.
     pub fn reset(&mut self) {
         self.slices.iter_mut().for_each(|it| *it = 0);
-        self.writer = 0;
         self.elapsed = clock::now();
     }
 
     /// Increments counter by `value`.
     pub fn add(&mut self, value: i64) {
         self.expire();
-        self.writer += value;
+        self.slices[self.index] += value;
         //println!("add {} {:?}", value, self.slices);
     }
 
@@ -88,13 +83,8 @@ impl WindowedAdder {
     pub fn sum(&mut self) -> i64 {
         self.expire();
 
-        let mut sum = self.writer;
-
+        let sum = self.slices.iter().fold(0, |acc, &x| acc + x);
         //println!("sum {} {:?}", sum, self.slices);
-
-        for i in &self.slices {
-            sum += i
-        }
         sum
     }
 
@@ -108,6 +98,8 @@ impl WindowedAdder {
     }
 }
 
+/// `Duration::as_millis` is unstable at the current(1.28) rust version, so it returns milliseconds
+/// in given duration.
 fn to_millis(duration: Duration) -> u64 {
     const MILLIS_PER_SEC: u64 = 1_000;
     (duration.as_secs() * MILLIS_PER_SEC) + u64::from(duration.subsec_millis())
