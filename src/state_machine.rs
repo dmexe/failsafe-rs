@@ -8,6 +8,11 @@ use super::clock;
 use super::failure_policy::FailurePolicy;
 use super::instrument::Instrument;
 
+const ON_CLOSED: u8 = 0b0000_0001;
+const ON_HALF_OPEN: u8 = 0b0000_0010;
+const ON_REJECTED: u8 = 0b0000_0100;
+const ON_OPEN: u8 = 0b0000_1000;
+
 /// States of the state machine.
 #[derive(Debug)]
 enum State {
@@ -20,11 +25,6 @@ enum State {
     HalfOpen(Duration),
 }
 
-const ON_CLOSED: u8 = 0b0000_0001;
-const ON_HALF_OPEN: u8 = 0b0000_0010;
-const ON_REJECTED: u8 = 0b0000_0100;
-const ON_OPEN: u8 = 0b0000_1000;
-
 struct Shared<POLICY> {
     state: State,
     failure_policy: POLICY,
@@ -35,7 +35,7 @@ struct Inner<POLICY, INSTRUMENT> {
     instrument: INSTRUMENT,
 }
 
-/// A circuit breaker' state machine.
+/// A circuit breaker implementation backed by state machine.
 ///
 /// It is implemented via a finite state machine with three states: `Closed`, `Open` and `HalfOpen`.
 /// The state machine does not know anything about the backend's state by itself, but uses the
@@ -72,6 +72,14 @@ impl<POLICY, INSTRUMENT> Debug for StateMachine<POLICY, INSTRUMENT> {
         f.debug_struct("StateMachine")
             .field("state", &(shared.state.as_str()))
             .finish()
+    }
+}
+
+impl<POLICY, INSTRUMENT> Clone for StateMachine<POLICY, INSTRUMENT> {
+    fn clone(&self) -> Self {
+        StateMachine {
+            inner: self.inner.clone(),
+        }
     }
 }
 
@@ -117,7 +125,9 @@ where
         }
     }
 
-    /// Requests permission to call this circuit breaker's backend.
+    /// Requests permission to call.
+    ///
+    /// It returns `true` if a call is allowed, or `false` if prohibited.
     pub fn is_call_permitted(&self) -> bool {
         let mut instrument: u8 = 0;
 
@@ -154,9 +164,8 @@ where
     /// Records a successful call.
     ///
     /// This method must be invoked when a call was success.
-    pub fn on_success(&mut self) {
+    pub fn on_success(&self) {
         let mut instrument: u8 = 0;
-
         {
             let mut shared = self.inner.shared.lock();
             if let State::HalfOpen(_) = shared.state {
@@ -174,9 +183,8 @@ where
     /// Records a failed call.
     ///
     /// This method must be invoked when a call failed.
-    pub fn on_error(&mut self) {
+    pub fn on_error(&self) {
         let mut instrument: u8 = 0;
-
         {
             let mut shared = self.inner.shared.lock();
             match shared.state {
@@ -222,8 +230,7 @@ mod tests {
             let observe = Observer::new();
             let backoff = backoff::exponential(5.seconds(), 300.seconds());
             let policy = consecutive_failures(3, backoff);
-
-            let mut state_machine = StateMachine::new(policy, observe.clone());
+            let state_machine = StateMachine::new(policy, observe.clone());
 
             assert_eq!(true, state_machine.is_call_permitted());
 

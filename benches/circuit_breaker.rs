@@ -8,13 +8,13 @@ extern crate tokio_threadpool;
 
 use std::sync::mpsc::channel;
 
-use failsafe::{Callable, CircuitBreaker, Error};
+use failsafe::{CircuitBreaker, Config, Error};
 use futures::future;
 use tokio_threadpool::ThreadPool;
 
 #[bench]
 fn single_threaded(b: &mut test::Bencher) {
-    let circuit_breaker = CircuitBreaker::builder().build();
+    let circuit_breaker = Config::new().build();
     let mut n = 0;
 
     b.iter(move || {
@@ -29,7 +29,7 @@ fn single_threaded(b: &mut test::Bencher) {
 
 #[bench]
 fn multi_threaded_in_batch(b: &mut test::Bencher) {
-    let circuit_breaker = CircuitBreaker::builder().build();
+    let circuit_breaker = Config::new().build();
     let thread_pool = ThreadPool::new();
     let batch_size = 10;
 

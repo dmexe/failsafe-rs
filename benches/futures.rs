@@ -8,15 +8,12 @@ extern crate tokio;
 
 use std::cell::RefCell;
 
-use failsafe::{
-    futures::{Callable, CircuitBreaker},
-    Error,
-};
+use failsafe::{futures::CircuitBreaker, Config, Error};
 use futures::{future, stream, Future, Stream};
 
 #[bench]
 fn multi_threaded_in_batch(b: &mut test::Bencher) {
-    let circuit_breaker = CircuitBreaker::builder().build();
+    let circuit_breaker = Config::new().build();
     let runtime = RefCell::new(tokio::runtime::Runtime::new().unwrap());
     let batch_size = 10;
 

@@ -17,7 +17,7 @@
 //! # extern crate rand;
 //! # use rand::{thread_rng, Rng};
 //!
-//! use failsafe::{CircuitBreaker, Callable, Error};
+//! use failsafe::{Config, CircuitBreaker, Error};
 //!
 //! // A function that sometimes failed.
 //! fn dangerous_call() -> Result<(), ()> {
@@ -29,7 +29,7 @@
 //!
 //! // Create a circuit breaker which configured by reasonable default backoff and
 //! // failure accrual policy.
-//! let circuit_breaker = CircuitBreaker::default();
+//! let circuit_breaker = Config::new().build();
 //!
 //! // Call the function in a loop, after some iterations the circuit breaker will
 //! // be in a open state and reject next calls.
@@ -54,24 +54,25 @@
 //! # extern crate rand;
 //!
 //! use std::time::Duration;
-//! use failsafe::{backoff, failure_policy, CircuitBreaker};
+//! use failsafe::{backoff, failure_policy, Config, CircuitBreaker};
 //!
-//! // Create an exponential growth backoff which starts from 10s and ends with 60s.
-//! let backoff = backoff::exponential(Duration::from_secs(10), Duration::from_secs(60));
+//! fn circuit_breaker() -> impl CircuitBreaker {
+//!   // Create an exponential growth backoff which starts from 10s and ends with 60s.
+//!   let backoff = backoff::exponential(Duration::from_secs(10), Duration::from_secs(60));
 //!
-//! // Create a policy which failed when three consecutive failures were made.
-//! let policy = failure_policy::consecutive_failures(3, backoff);
+//!   // Create a policy which failed when three consecutive failures were made.
+//!   let policy = failure_policy::consecutive_failures(3, backoff);
 //!
-//! // Creates a circuit breaker with given policy.
-//! let circuit_breaker = CircuitBreaker::builder()
-//!   .failure_policy(policy)
-//!   .build();
-//!
+//!   // Creates a circuit breaker with given policy.
+//!   Config::new()
+//!     .failure_policy(policy)
+//!     .build()
+//! }
 //! ```
 
 #![deny(missing_debug_implementations)]
 #![deny(missing_docs)]
-//#![cfg_attr(test, deny(warnings))]
+#![cfg_attr(test, deny(warnings))]
 
 extern crate futures as lib_futures;
 extern crate rand;
@@ -96,7 +97,7 @@ pub mod futures;
 #[doc(hidden)]
 pub mod clock;
 
-pub use self::circuit_breaker::{Callable, CircuitBreaker};
+pub use self::circuit_breaker::CircuitBreaker;
 pub use self::config::Config;
 pub use self::error::Error;
 pub use self::failure_policy::FailurePolicy;
