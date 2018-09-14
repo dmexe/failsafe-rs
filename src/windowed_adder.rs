@@ -22,13 +22,11 @@ impl WindowedAdder {
     /// # Panics
     ///
     /// * When `slices` isn't in range [1;10].
-    /// * When `window` in seconds is less then `slices`.
     pub fn new(window: Duration, slices: u8) -> Self {
         assert!(slices <= 10);
         assert!(slices > 1);
-        assert!(window.as_secs() >= u64::from(slices));
 
-        let window = to_millis(window) / u64::from(slices);
+        let window = window.millis() / u64::from(slices);
 
         Self {
             window,
@@ -41,7 +39,7 @@ impl WindowedAdder {
     /// Purge outdated slices.
     pub fn expire(&mut self) {
         let now = clock::now();
-        let time_diff = to_millis(now - self.elapsed);
+        let time_diff = (now - self.elapsed).millis();
 
         if time_diff < self.window {
             return;
@@ -97,9 +95,15 @@ impl WindowedAdder {
 
 /// `Duration::as_millis` is unstable at the current(1.28) rust version, so it returns milliseconds
 /// in given duration.
-fn to_millis(duration: Duration) -> u64 {
-    const MILLIS_PER_SEC: u64 = 1_000;
-    (duration.as_secs() * MILLIS_PER_SEC) + u64::from(duration.subsec_millis())
+trait Millis {
+    fn millis(&self) -> u64;
+}
+
+impl Millis for Duration {
+    fn millis(&self) -> u64 {
+        const MILLIS_PER_SEC: u64 = 1_000;
+        (self.as_secs() * MILLIS_PER_SEC) + u64::from(self.subsec_millis())
+    }
 }
 
 #[cfg(test)]
@@ -148,25 +152,27 @@ mod tests {
     #[test]
     fn sliding_over_large_window() {
         clock::freeze(|time| {
-            let mut adder = WindowedAdder::new(60.seconds(), 10);
+            let mut adder = WindowedAdder::new(20.seconds(), 10);
 
-            for i in 1..60 {
-                adder.add(1);
-                assert_eq!(i, adder.sum());
+            for i in 0..21 {
+                adder.add(i % 3);
                 time.advance(1.seconds());
             }
 
-            adder.add(1);
-            assert_eq!(60, adder.sum());
+            assert_eq!(20, adder.sum());
 
-            time.advance(40.seconds());
+            time.advance(1.seconds());
             assert_eq!(18, adder.sum());
 
-            time.advance(12.seconds());
-            assert_eq!(6, adder.sum());
+            time.advance(1.seconds());
+            assert_eq!(18, adder.sum());
 
-            time.advance(6.seconds());
-            assert_eq!(0, adder.sum());
+            time.advance(5.seconds());
+            assert_eq!(12, adder.sum());
+            adder.add(1);
+
+            time.advance(10.seconds());
+            assert_eq!(3, adder.sum());
         })
     }
 
