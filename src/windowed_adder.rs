@@ -82,10 +82,7 @@ impl WindowedAdder {
     /// Returns the current sum of the counter.
     pub fn sum(&mut self) -> i64 {
         self.expire();
-
-        let sum = self.slices.iter().fold(0, |acc, &x| acc + x);
-        //println!("sum {} {:?}", sum, self.slices);
-        sum
+        self.slices.iter().sum()
     }
 
     /// Writes zero into slices starting `from` and ending `to`.

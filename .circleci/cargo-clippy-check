@@ -18,16 +18,16 @@ if [ "x$(is_stable)" == "xno" ] ; then
 fi
 
 rustfmt --version > /dev/null 2>&1 || (
-  echo -e "${GREEN}rustup component add rustfmt-preview${NC}"
-  rustup component add rustfmt-preview
+  echo -e "${GREEN}rustup component add clippy-preview${NC}"
+  rustup component add clippy-preview
   echo
 )
 
-echo -e "${GREEN}rustfmt --version${NC}"
-rustfmt --version
+echo -e "${GREEN}${CARGO} clippy --version${NC}"
+${CARGO} clippy --version
 echo
 
-echo -e "${GREEN}${CARGO} fmt -- --check${NC}"
-${CARGO} fmt -- --check
+echo -e "${GREEN}${CARGO} clippy${NC}"
+${CARGO} clippy
 
 echo -e "${YELLOW}OK${NC}"

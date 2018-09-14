@@ -16,7 +16,9 @@ default_steps: &default_steps
         key: cache-v1-{{ checksum "/root/.cache-key" }}-{{ checksum "./Cargo.toml" }}
     - run:
         name: "Check formatting"
-        command: .circleci/cargo-fmt-check
+        command: |
+          .circleci/cargo-fmt-check
+          .circleci/cargo-clippy-check
     - run:
         name: "Fetch dependencies"
         command: ${CARGO} fetch
