@@ -50,6 +50,12 @@ jobs:
     docker:
     - image: "rust:1.28"
 
+  rust_1_29:
+    <<: *default_env
+    <<: *default_steps
+    docker:
+    - image: "rust:1.29"
+
   rust_nightly:
     <<: *default_env
     <<: *default_steps
@@ -62,6 +68,7 @@ workflows:
     jobs:
     - rust_1_27
     - rust_1_28
+    - rust_1_29
     - rust_nightly
   nightly:
     jobs:
