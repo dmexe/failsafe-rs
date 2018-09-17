@@ -17,7 +17,7 @@ if [ "x$(is_stable)" == "xno" ] ; then
   exit 0
 fi
 
-rustfmt --version > /dev/null 2>&1 || (
+${CARGO} clippy --version > /dev/null 2>&1 || (
   echo -e "${GREEN}rustup component add clippy-preview${NC}"
   rustup component add clippy-preview
   echo
