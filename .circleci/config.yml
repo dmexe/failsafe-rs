@@ -2,7 +2,7 @@ version: 2
 
 default_env: &default_env
   environment:
-    CARGO_HOME: "/root/.cargo"
+    CARGO_HOME: "/home/circleci/.cargo"
     CARGO: "cargo --color always"
     CARGO_ARGS: ""
 
@@ -11,14 +11,17 @@ default_steps: &default_steps
     - checkout
     - run:
         name: "Print versions"
-        command: .circleci/cache-key /root/.cache-key
-    - restore_cache:
-        key: cache-v1-{{ checksum "/root/.cache-key" }}-{{ checksum "./Cargo.toml" }}
-    - run:
-        name: "Check formatting"
         command: |
-          .circleci/cargo-fmt-check
-          .circleci/cargo-clippy-check
+          mkdir -p /home/circleci
+          .circleci/cache-key /home/circleci/.cache-key
+    - restore_cache:
+        key: cache-v2-{{ checksum "/home/circleci/.cache-key" }}-{{ checksum "./Cargo.toml" }}
+    - run:
+        name: "Lint"
+        command: |
+          if [ "$CIRCLE_JOB" == "rust_1_29_0" ]; then
+            .circleci/cargo-lint
+          fi
     - run:
         name: "Fetch dependencies"
         command: ${CARGO} fetch
@@ -35,28 +38,28 @@ default_steps: &default_steps
             ${CARGO} bench --benches ${CARGO_ARGS}
           fi
     - save_cache:
-        key: cache-v1-{{ checksum "/root/.cache-key" }}-{{ checksum "./Cargo.toml" }}
+        key: cache-v2-{{ checksum "/home/circleci/.cache-key" }}-{{ checksum "./Cargo.toml" }}
         paths:
-          - "/root/.cargo"
+          - "/home/circleci/.cargo"
           - "./target"
 jobs:
   rust_1_27:
     <<: *default_env
     <<: *default_steps
     docker:
-    - image: "rust:1.27"
+    - image: "circleci/rust:1.27"
 
   rust_1_28:
     <<: *default_env
     <<: *default_steps
     docker:
-    - image: "rust:1.28"
+    - image: "circleci/rust:1.28"
 
   rust_1_29_0:
     <<: *default_env
     <<: *default_steps
     docker:
-    - image: "rust:1.29.0"
+    - image: "circleci/rust:1.29.0"
 
   rust_nightly:
     <<: *default_env

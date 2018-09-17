@@ -1,0 +1,34 @@
+#!/bin/bash
+
+set -e
+
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+CARGO=${CARGO:-cargo}
+
+function cargo_run() {
+  echo -e "${GREEN}${CARGO} $@${NC}"
+  ${CARGO} $@
+}
+
+function rust_add_component() {
+  local name=$1
+
+  echo -e "${GREEN}rustup component add ${name}${NC}"
+  rustup component add ${name}
+}
+
+# cargo fmt
+rust_add_component rustfmt-preview
+cargo_run fmt -- --version
+cargo_run fmt -- --check
+
+echo
+
+rust_add_component clippy-preview
+cargo_run clippy --version
+cargo_run clippy
+
+echo -e "${YELLOW}OK${NC}"
