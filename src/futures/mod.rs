@@ -108,15 +108,9 @@ where
             future: f,
             state_machine: self.clone(),
             predicate,
-            state: State::Request,
+            ask: false,
         }
     }
-}
-
-enum State {
-    Request,
-    Permitted,
-    Rejected,
 }
 
 /// A circuit breaker's future.
@@ -125,7 +119,7 @@ pub struct ResponseFuture<FUTURE, POLICY, INSTRUMENT, PREDICATE> {
     future: FUTURE,
     state_machine: StateMachine<POLICY, INSTRUMENT>,
     predicate: PREDICATE,
-    state: State,
+    ask: bool
 }
 
 impl<FUTURE, POLICY, INSTRUMENT, PREDICATE> Future
@@ -140,16 +134,11 @@ where
     type Error = Error<FUTURE::Error>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        if let State::Request = self.state {
-            if self.state_machine.is_call_permitted() {
-                self.state = State::Permitted
-            } else {
-                self.state = State::Rejected
+        if !self.ask {
+            self.ask = true;
+            if !self.state_machine.is_call_permitted() {
+                return Err(Error::Rejected);
             }
-        }
-
-        if let State::Rejected = self.state {
-            return Err(Error::Rejected);
         }
 
         match self.future.poll() {
