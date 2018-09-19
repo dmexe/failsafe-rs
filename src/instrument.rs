@@ -16,10 +16,7 @@ pub trait Instrument {
 }
 
 /// An instrumentation which does noting.
-#[derive(Debug)]
-pub struct NoopInstrument;
-
-impl Instrument for NoopInstrument {
+impl Instrument for () {
     #[inline]
     fn on_call_rejected(&self) {}
 

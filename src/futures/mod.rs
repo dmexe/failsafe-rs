@@ -119,7 +119,7 @@ pub struct ResponseFuture<FUTURE, POLICY, INSTRUMENT, PREDICATE> {
     future: FUTURE,
     state_machine: StateMachine<POLICY, INSTRUMENT>,
     predicate: PREDICATE,
-    ask: bool
+    ask: bool,
 }
 
 impl<FUTURE, POLICY, INSTRUMENT, PREDICATE> Future

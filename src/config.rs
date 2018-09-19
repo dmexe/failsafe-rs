@@ -1,6 +1,6 @@
 use super::backoff;
 use super::failure_policy::{self, ConsecutiveFailures, FailurePolicy, SuccessRateOverTimeWindow};
-use super::instrument::{Instrument, NoopInstrument};
+use super::instrument::Instrument;
 use super::state_machine::StateMachine;
 
 /// A `CircuitBreaker`'s configuration.
@@ -17,14 +17,14 @@ impl Config<(), ()> {
             SuccessRateOverTimeWindow<backoff::EqualJittered>,
             ConsecutiveFailures<backoff::EqualJittered>,
         >,
-        NoopInstrument,
+        (),
     > {
         let failure_policy =
             SuccessRateOverTimeWindow::default().or_else(ConsecutiveFailures::default());
 
         Config {
             failure_policy,
-            instrument: NoopInstrument,
+            instrument: (),
         }
     }
 }
