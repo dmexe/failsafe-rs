@@ -38,7 +38,7 @@ extern crate failsafe;
 Using default backoff strategy and failure accrual policy.
 
 ```rust
-use failsafe::{CircuitBreaker, Callable, Error};
+use failsafe::{Config, CircuitBreaker, Error};
 
 // A function that sometimes failed.
 fn dangerous_call() -> Result<(), ()> {
@@ -50,7 +50,7 @@ fn dangerous_call() -> Result<(), ()> {
 
 // Create a circuit breaker which configured by reasonable default backoff and
 // failure accrual policy.
-let circuit_breaker = CircuitBreaker::default();
+let circuit_breaker = Config::new().build();
 
 // Call the function in a loop, after some iterations the circuit breaker will
 // be in a open state and reject next calls.
@@ -81,7 +81,7 @@ let backoff = backoff::exponential(Duration::from_secs(10), Duration::from_secs(
 let policy = failure_policy::consecutive_failures(3, backoff);
 
 // Creates a circuit breaker with given policy.
-let circuit_breaker = CircuitBreaker::builder()
+let circuit_breaker = Config::new()
   .failure_policy(policy)
   .build();
 ```
