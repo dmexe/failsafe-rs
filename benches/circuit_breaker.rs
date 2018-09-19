@@ -4,13 +4,10 @@
 extern crate failsafe;
 extern crate futures;
 extern crate test;
-extern crate tokio_threadpool;
 
-use std::sync::mpsc::channel;
+use std::thread;
 
 use failsafe::{CircuitBreaker, Config, Error};
-use futures::future;
-use tokio_threadpool::ThreadPool;
 
 #[bench]
 fn single_threaded(b: &mut test::Bencher) {
@@ -30,33 +27,26 @@ fn single_threaded(b: &mut test::Bencher) {
 #[bench]
 fn multi_threaded_in_batch(b: &mut test::Bencher) {
     let circuit_breaker = Config::new().build();
-    let thread_pool = ThreadPool::new();
     let batch_size = 10;
 
     b.iter(move || {
-        let (tx, rx) = channel();
+        let mut threads = Vec::new();
 
         for n in 0..batch_size {
             let circuit_breaker = circuit_breaker.clone();
-            let tx = tx.clone();
-
-            let future = future::lazy(move || {
+            let thr = thread::spawn(move || {
                 let res = match circuit_breaker.call(|| dangerous_call(n)) {
-                    Ok(n) => n,
-                    Err(Error::Inner(n)) => n,
+                    Ok(_) => true,
+                    Err(Error::Inner(_)) => false,
                     Err(err) => unreachable!("{:?}", err),
                 };
-                tx.send(res).unwrap();
-                Ok(())
+                test::black_box(res);
             });
 
-            thread_pool.spawn(future);
+            threads.push(thr);
         }
 
-        drop(tx);
-
-        let res = rx.iter().sum();
-        assert_eq!(45usize, res);
+        threads.into_iter().for_each(|it| it.join().unwrap());
     });
 }
 
