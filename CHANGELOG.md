@@ -1,3 +1,9 @@
+### Unreleased
+
+Breaking changes:
+* remove `instrument::NoopInstrument`, use `()` instead.
+
+
 ### 0.2.0
 
 Breaking changes:
