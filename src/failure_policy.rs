@@ -61,7 +61,7 @@ pub trait FailurePolicy {
 ///
 /// # Panics
 ///
-/// When `required_success_rate` isn't in `[0.0, 0.1]` interval.
+/// When `required_success_rate` isn't in `[0.0, 1.0]` interval.
 pub fn success_rate_over_time_window<BACKOFF>(
     required_success_rate: f64,
     min_request_threshold: u32,
