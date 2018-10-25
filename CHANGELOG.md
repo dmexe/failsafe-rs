@@ -2,7 +2,8 @@
 
 Breaking changes:
 * remove `instrument::NoopInstrument`, use `()` instead.
-
+* added optional feature `parking_lot_mutex` when it exists the crate `parking_lot`
+  would be using for `Mutex` instead of the default `spin`.
 
 ### 0.2.0
 
@@ -14,3 +15,4 @@ Breaking changes:
 Improvements:
 * remove `tokio-timer` dependency.
 * use spin lock instead `std::sync::Mutex`
+

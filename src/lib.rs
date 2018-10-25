@@ -76,7 +76,12 @@
 
 extern crate futures as lib_futures;
 extern crate rand;
-extern crate spin;
+
+#[cfg(feature = "spin_mutex")]
+extern crate spin as sync;
+
+#[cfg(feature = "parking_lot_mutex")]
+extern crate parking_lot as sync;
 
 #[cfg(test)]
 extern crate tokio;
