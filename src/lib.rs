@@ -76,7 +76,7 @@
 
 extern crate futures as lib_futures;
 extern crate rand;
-extern crate spin;
+extern crate parking_lot;
 
 #[cfg(test)]
 extern crate tokio;
