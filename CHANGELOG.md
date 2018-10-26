@@ -1,5 +1,7 @@
 ### Unreleased
 
+### 0.3.0
+
 Breaking changes:
 * remove `instrument::NoopInstrument`, use `()` instead.
 * added optional feature `parking_lot_mutex` when it exists the crate `parking_lot`

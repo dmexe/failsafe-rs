@@ -1,6 +1,6 @@
 [package]
 name = "failsafe"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Dmitry Galinsky <dima.exe@gmail.com>"]
 description = "A circuit breaker implementation"
 license = "MIT"
@@ -21,3 +21,4 @@ default = ["spin_mutex"]
 
 spin_mutex = ["spin"]
 parking_lot_mutex = ["parking_lot"]
+
