@@ -9,8 +9,15 @@ repository = "https://github.com/dmexe/failsafe-rs"
 [dependencies]
 futures = "0.1"
 rand = "0.5"
-spin = { version = "0.4", default-features = false }
+spin = { version = "0.4", default-features = false, optional = true }
+parking_lot = { version = "^0.6.4", optional = true }
 
 [dev-dependencies]
 tokio = "0.1.8"
 tokio-threadpool = "0.1.6"
+
+[features]
+default = ["spin_mutex"]
+
+spin_mutex = ["spin"]
+parking_lot_mutex = ["parking_lot"]
