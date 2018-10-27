@@ -58,11 +58,17 @@ jobs:
     docker:
     - image: "circleci/rust:1.28"
 
-  rust_1_29_0:
+  rust_1_29_2:
     <<: *default_env
     <<: *default_steps
     docker:
-    - image: "circleci/rust:1.29.0"
+    - image: "circleci/rust:1.29.2"
+
+  rust_1_30:
+    <<: *default_env
+    <<: *default_steps
+    docker:
+    - image: "circleci/rust:1.30"
 
   rust_nightly:
     <<: *default_env
@@ -76,7 +82,8 @@ workflows:
     jobs:
     - rust_1_27
     - rust_1_28
-    - rust_1_29_0
+    - rust_1_29_2
+    - rust_1_30
     - rust_nightly
   nightly:
     jobs:
