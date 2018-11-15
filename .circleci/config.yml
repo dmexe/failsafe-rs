@@ -15,7 +15,7 @@ default_steps: &default_steps
           mkdir -p /home/circleci
           .circleci/cache-key /home/circleci/.cache-key
     - restore_cache:
-        key: cache-v3-{{ checksum "/home/circleci/.cache-key" }}-{{ checksum "./Cargo.toml" }}
+        key: cache-v4-{{ checksum "/home/circleci/.cache-key" }}-{{ checksum "./Cargo.toml" }}
     - run:
         name: "Lint"
         command: |
@@ -41,10 +41,9 @@ default_steps: &default_steps
             ${CARGO} bench --benches ${CARGO_ARGS}
           fi
     - save_cache:
-        key: cache-v3-{{ checksum "/home/circleci/.cache-key" }}-{{ checksum "./Cargo.toml" }}
+        key: cache-v4-{{ checksum "/home/circleci/.cache-key" }}-{{ checksum "./Cargo.toml" }}
         paths:
           - "/home/circleci/.cargo"
-          - "./target"
 jobs:
   rust_1_27:
     <<: *default_env
