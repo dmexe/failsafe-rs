@@ -27,7 +27,7 @@ default_steps: &default_steps
         command: ${CARGO} fetch
     - run:
         name: "Build"
-        command: ${CARGO} build ${CARGO_ARGS}
+        command: ${CARGO} build ${CARGO_ARGS} --tests
     - run:
         name: "Test"
         command: ${CARGO} test ${CARGO_ARGS} -- --nocapture
@@ -64,11 +64,11 @@ jobs:
     docker:
     - image: "circleci/rust:1.29.2"
 
-  rust_1_30:
+  rust_1_30_1:
     <<: *default_env
     <<: *default_steps
     docker:
-    - image: "circleci/rust:1.30"
+    - image: "circleci/rust:1.30.1"
 
   rust_nightly:
     <<: *default_env
@@ -83,7 +83,7 @@ workflows:
     - rust_1_27
     - rust_1_28
     - rust_1_29_2
-    - rust_1_30
+    - rust_1_30_1
     - rust_nightly
   nightly:
     jobs:
