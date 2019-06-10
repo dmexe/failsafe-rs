@@ -1,5 +1,10 @@
 ### Unreleased
 
+### 0.3.1
+
+Fixes:
+* add explicitly `dyn` definition to trait objects
+
 ### 0.3.0
 
 Breaking changes:
