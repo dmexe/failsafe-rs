@@ -33,7 +33,7 @@ where
         }
     }
 
-    fn cause(&self) -> Option<&StdError> {
+    fn cause(&self) -> Option<&dyn StdError> {
         match self {
             Error::Inner(ref err) => Some(err),
             _ => None,

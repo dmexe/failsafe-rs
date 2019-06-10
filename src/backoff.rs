@@ -11,7 +11,7 @@ pub use rand::prelude::ThreadRng;
 const MAX_RETRIES: u32 = 30;
 
 /// A type alias for backoff strategy.
-pub type Backoff = Iterator<Item = Duration>;
+pub type Backoff = dyn Iterator<Item = Duration>;
 
 /// Creates a infinite stream of given `duration`
 pub fn constant(duration: Duration) -> Constant {
