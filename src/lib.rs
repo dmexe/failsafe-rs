@@ -13,10 +13,7 @@
 //! Using default backoff strategy and failure accrual policy.
 //!
 //! ```
-//! # extern crate failsafe;
-//! # extern crate rand;
-//! # use rand::{thread_rng, Rng};
-//!
+//! use rand::{thread_rng, Rng};
 //! use failsafe::{Config, CircuitBreaker, Error};
 //!
 //! // A function that sometimes failed.
@@ -50,9 +47,6 @@
 //! Or configure custom backoff and policy:
 //!
 //! ```
-//! # extern crate failsafe;
-//! # extern crate rand;
-//!
 //! use std::time::Duration;
 //! use failsafe::{backoff, failure_policy, Config, CircuitBreaker};
 //!
@@ -73,18 +67,6 @@
 #![deny(missing_debug_implementations)]
 #![deny(missing_docs)]
 #![cfg_attr(test, deny(warnings))]
-
-extern crate futures as lib_futures;
-extern crate rand;
-
-#[cfg(feature = "spin_mutex")]
-extern crate spin as sync;
-
-#[cfg(feature = "parking_lot_mutex")]
-extern crate parking_lot as sync;
-
-#[cfg(test)]
-extern crate tokio;
 
 mod circuit_breaker;
 mod config;

@@ -24,16 +24,9 @@ where
 
 impl<E> StdError for Error<E>
 where
-    E: StdError,
+    E: StdError + 'static,
 {
-    fn description(&self) -> &str {
-        match self {
-            Error::Rejected => "call was rejected",
-            Error::Inner(err) => err.description(),
-        }
-    }
-
-    fn cause(&self) -> Option<&dyn StdError> {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self {
             Error::Inner(ref err) => Some(err),
             _ => None,

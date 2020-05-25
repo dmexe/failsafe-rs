@@ -1,5 +1,9 @@
 ### Unreleased
 
+* use rust 2018 edition
+* drop `spin` dependency, use `parking_lot`
+* minimum rust version is 1.33.0
+
 ### 0.3.1
 
 Fixes:

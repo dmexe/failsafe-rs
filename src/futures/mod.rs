@@ -32,7 +32,7 @@
 //! let future = circuit_breaker.call(dangerous_call());
 //! let result = future.wait();
 
-use lib_futures::{Async, Future, Poll};
+use futures::{Async, Future, Poll};
 
 use super::error::Error;
 use super::failure_policy::FailurePolicy;
@@ -163,7 +163,7 @@ where
 mod tests {
     use std::time::{Duration, Instant};
 
-    use lib_futures::future;
+    use futures::future;
     use tokio::runtime::Runtime;
     use tokio::timer::Delay;
 

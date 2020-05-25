@@ -2,7 +2,7 @@ use std::fmt::{self, Debug};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use sync::Mutex;
+use parking_lot::Mutex;
 
 use super::clock;
 use super::failure_policy::FailurePolicy;

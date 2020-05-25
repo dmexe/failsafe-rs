@@ -5,20 +5,31 @@ authors = ["Dmitry Galinsky <dima.exe@gmail.com>"]
 description = "A circuit breaker implementation"
 license = "MIT"
 repository = "https://github.com/dmexe/failsafe-rs"
+edition = "2018"
 
 [dependencies]
 futures = "0.1"
 rand = "0.5"
-spin = { version = "0.4", default-features = false, optional = true }
-parking_lot = { version = "^0.6.4", optional = true }
+parking_lot = "^0.6.4"
 
 [dev-dependencies]
 tokio = "0.1.8"
 tokio-threadpool = "0.1.6"
+criterion = "0.3.2"
 
-[features]
-default = ["spin_mutex"]
+[[bench]]
+name = "windowed_adder"
+harness = false
 
-spin_mutex = ["spin"]
-parking_lot_mutex = ["parking_lot"]
+[[bench]]
+name = "state_machine"
+harness = false
+
+[[bench]]
+name = "futures"
+harness = false
+
+[[bench]]
+name = "circuit_breaker"
+harness = false
 
