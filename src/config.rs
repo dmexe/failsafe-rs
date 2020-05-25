@@ -12,6 +12,7 @@ pub struct Config<POLICY, INSTRUMENT> {
 
 impl Config<(), ()> {
     /// Creates a new circuit breaker's default configuration.
+    #[allow(clippy::new_ret_no_self)]
     pub fn new() -> Config<
         failure_policy::OrElse<
             SuccessRateOverTimeWindow<backoff::EqualJittered>,
