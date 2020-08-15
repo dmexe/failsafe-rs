@@ -14,8 +14,8 @@ rand = "0.5"
 parking_lot = "^0.6.4"
 
 [dev-dependencies]
-tokio = "0.1.8"
-tokio-threadpool = "0.1.6"
+futures = { version = "0.3", features = ["std"] }
+tokio = { version = "0.2", features = ["rt-core", "macros", "time"] }
 criterion = "0.3.2"
 
 [[bench]]

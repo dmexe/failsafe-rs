@@ -168,69 +168,64 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
 
     use futures::future;
-    use tokio::runtime::Runtime;
-    use tokio::timer::Delay;
 
     use super::super::backoff;
     use super::super::config::Config;
     use super::super::failure_policy;
     use super::*;
 
-    #[test]
-    fn call_ok() {
-        let mut runtime = Runtime::new().unwrap();
+    #[tokio::test]
+    async fn call_ok() {
         let circuit_breaker = new_circuit_breaker();
-        let future = Delay::new(Instant::now() + Duration::from_millis(100));
+        let future = delay_for(Duration::from_millis(100));
         let future = circuit_breaker.call(future);
 
-        runtime.block_on(future).unwrap();
+        future.await.unwrap();
         assert_eq!(true, circuit_breaker.is_call_permitted());
     }
 
-    #[test]
-    fn call_err() {
-        let mut runtime = Runtime::new().unwrap();
+    #[tokio::test]
+    async fn call_err() {
         let circuit_breaker = new_circuit_breaker();
 
-        let future = future::lazy(|| Err::<(), ()>(()));
+        let future = future::err::<(), ()>(());
         let future = circuit_breaker.call(future);
-        match runtime.block_on(future) {
+        match future.await {
             Err(Error::Inner(_)) => {}
             err => unreachable!("{:?}", err),
         }
         assert_eq!(false, circuit_breaker.is_call_permitted());
 
-        let future = Delay::new(Instant::now() + Duration::from_secs(1));
+        let future = delay_for(Duration::from_secs(1));
         let future = circuit_breaker.call(future);
-        match runtime.block_on(future) {
+        match future.await {
             Err(Error::Rejected) => {}
             err => unreachable!("{:?}", err),
         }
         assert_eq!(false, circuit_breaker.is_call_permitted());
     }
 
-    #[test]
-    fn call_with() {
-        let mut runtime = Runtime::new().unwrap();
+    #[tokio::test]
+    async fn call_with() {
         let circuit_breaker = new_circuit_breaker();
         let is_err = |err: &bool| !(*err);
 
         for _ in 0..2 {
-            let future = future::lazy(|| Err::<(), _>(true));
+            let future = future::err::<(), _>(true);
             let future = circuit_breaker.call_with(is_err, future);
-            match runtime.block_on(future) {
+            match future.await {
                 Err(Error::Inner(true)) => {}
                 err => unreachable!("{:?}", err),
             }
             assert_eq!(true, circuit_breaker.is_call_permitted());
         }
 
-        let future = future::lazy(|| Err::<(), _>(false));
+        let future = future::err::<(), _>(false);
         let future = circuit_breaker.call_with(is_err, future);
-        match runtime.block_on(future) {
+        match future.await {
             Err(Error::Inner(false)) => {}
             err => unreachable!("{:?}", err),
         }
@@ -241,5 +236,10 @@ mod tests {
         let backoff = backoff::constant(Duration::from_secs(5));
         let policy = failure_policy::consecutive_failures(1, backoff);
         Config::new().failure_policy(policy).build()
+    }
+
+    async fn delay_for(duration: Duration) -> Result<(), ()> {
+        tokio::time::delay_for(duration).await;
+        Ok(())
     }
 }
