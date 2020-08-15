@@ -8,8 +8,8 @@ repository = "https://github.com/dmexe/failsafe-rs"
 edition = "2018"
 
 [dependencies]
-futures-core = "0.3"
-pin-project = "0.4"
+futures-core = { version = "0.3", optional = true }
+pin-project = { version = "0.4", optional = true }
 rand = "0.7"
 parking_lot = "0.11"
 
@@ -18,6 +18,10 @@ futures = { version = "0.3", features = ["std"] }
 tokio = { version = "0.2", features = ["rt-core", "macros", "time"] }
 criterion = "0.3.2"
 rand_xorshift = "0.2"
+
+[features]
+default = ["futures-support"]
+futures-support = ["futures-core", "pin-project"]
 
 [[bench]]
 name = "windowed_adder"
