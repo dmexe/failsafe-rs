@@ -1,4 +1,4 @@
-### Unreleased
+### 1.0.0
 
 Breaking changes:
 * use rust 2018 edition
