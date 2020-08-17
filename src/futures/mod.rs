@@ -7,21 +7,18 @@
 //! ```
 //! # extern crate failsafe;
 //! # extern crate rand;
-//! # extern crate futures;
 //! # use rand::{thread_rng, Rng};
+//! # async {
 //!
-//! use futures::{future, Future};
 //! use failsafe::Config;
 //! use failsafe::futures::CircuitBreaker;
 //!
-//! // A function that sometimes failed.
-//! fn dangerous_call() -> impl Future<Item = (), Error = ()> {
-//!   future::lazy(|| {
-//!     if thread_rng().gen_range(0, 2) == 0 {
-//!       return Err(())
-//!     }
-//!     Ok(())
-//!   })
+//! // A function that sometimes fails.
+//! async fn dangerous_call() -> Result<(), ()> {
+//!   if thread_rng().gen_range(0, 2) == 0 {
+//!     return Err(())
+//!   }
+//!   Ok(())
 //! }
 //!
 //! // Create a circuit breaker which configured by reasonable default backoff and
@@ -30,9 +27,16 @@
 //!
 //! // Wraps `dangerous_call` result future within circuit breaker.
 //! let future = circuit_breaker.call(dangerous_call());
-//! let result = future.wait();
+//! let result = future.await;
+//!
+//! # }; // async
 
-use futures::{Async, Future, Poll};
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
+
+use futures_core::future::TryFuture;
+use pin_project::pin_project;
 
 use super::error::Error;
 use super::failure_policy::FailurePolicy;
@@ -61,7 +65,7 @@ pub trait CircuitBreaker {
         f: F,
     ) -> ResponseFuture<F, Self::FailurePolicy, Self::Instrument, failure_predicate::Any>
     where
-        F: Future,
+        F: TryFuture,
     {
         self.call_with(failure_predicate::Any, f)
     }
@@ -77,7 +81,7 @@ pub trait CircuitBreaker {
         f: F,
     ) -> ResponseFuture<F, Self::FailurePolicy, Self::Instrument, P>
     where
-        F: Future,
+        F: TryFuture,
         P: FailurePredicate<F::Error>;
 }
 
@@ -101,7 +105,7 @@ where
         f: F,
     ) -> ResponseFuture<F, Self::FailurePolicy, Self::Instrument, P>
     where
-        F: Future,
+        F: TryFuture,
         P: FailurePredicate<F::Error>,
     {
         ResponseFuture {
@@ -115,7 +119,9 @@ where
 
 /// A circuit breaker's future.
 #[allow(missing_debug_implementations)]
+#[pin_project]
 pub struct ResponseFuture<FUTURE, POLICY, INSTRUMENT, PREDICATE> {
+    #[pin]
     future: FUTURE,
     state_machine: StateMachine<POLICY, INSTRUMENT>,
     predicate: PREDICATE,
@@ -125,105 +131,101 @@ pub struct ResponseFuture<FUTURE, POLICY, INSTRUMENT, PREDICATE> {
 impl<FUTURE, POLICY, INSTRUMENT, PREDICATE> Future
     for ResponseFuture<FUTURE, POLICY, INSTRUMENT, PREDICATE>
 where
-    FUTURE: Future,
+    FUTURE: TryFuture,
     POLICY: FailurePolicy,
     INSTRUMENT: Instrument,
     PREDICATE: FailurePredicate<FUTURE::Error>,
 {
-    type Item = FUTURE::Item;
-    type Error = Error<FUTURE::Error>;
+    type Output = Result<FUTURE::Ok, Error<FUTURE::Error>>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        if !self.ask {
-            self.ask = true;
-            if !self.state_machine.is_call_permitted() {
-                return Err(Error::Rejected);
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        let this = self.project();
+
+        if !*this.ask {
+            *this.ask = true;
+            if !this.state_machine.is_call_permitted() {
+                return Poll::Ready(Err(Error::Rejected));
             }
         }
 
-        match self.future.poll() {
-            Ok(Async::Ready(ok)) => {
-                self.state_machine.on_success();
-                Ok(Async::Ready(ok))
+        match this.future.try_poll(cx) {
+            Poll::Ready(Ok(ok)) => {
+                this.state_machine.on_success();
+                Poll::Ready(Ok(ok))
             }
-            Ok(Async::NotReady) => Ok(Async::NotReady),
-            Err(err) => {
-                if self.predicate.is_err(&err) {
-                    self.state_machine.on_error();
+            Poll::Ready(Err(err)) => {
+                if this.predicate.is_err(&err) {
+                    this.state_machine.on_error();
                 } else {
-                    self.state_machine.on_success();
+                    this.state_machine.on_success();
                 }
-                Err(Error::Inner(err))
+                Poll::Ready(Err(Error::Inner(err)))
             }
+            Poll::Pending => Poll::Pending,
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
 
     use futures::future;
-    use tokio::runtime::Runtime;
-    use tokio::timer::Delay;
 
     use super::super::backoff;
     use super::super::config::Config;
     use super::super::failure_policy;
     use super::*;
 
-    #[test]
-    fn call_ok() {
-        let mut runtime = Runtime::new().unwrap();
+    #[tokio::test]
+    async fn call_ok() {
         let circuit_breaker = new_circuit_breaker();
-        let future = Delay::new(Instant::now() + Duration::from_millis(100));
+        let future = delay_for(Duration::from_millis(100));
         let future = circuit_breaker.call(future);
 
-        runtime.block_on(future).unwrap();
+        future.await.unwrap();
         assert_eq!(true, circuit_breaker.is_call_permitted());
     }
 
-    #[test]
-    fn call_err() {
-        let mut runtime = Runtime::new().unwrap();
+    #[tokio::test]
+    async fn call_err() {
         let circuit_breaker = new_circuit_breaker();
 
-        let future = future::lazy(|| Err::<(), ()>(()));
+        let future = future::err::<(), ()>(());
         let future = circuit_breaker.call(future);
-        match runtime.block_on(future) {
+        match future.await {
             Err(Error::Inner(_)) => {}
             err => unreachable!("{:?}", err),
         }
         assert_eq!(false, circuit_breaker.is_call_permitted());
 
-        let future = Delay::new(Instant::now() + Duration::from_secs(1));
+        let future = delay_for(Duration::from_secs(1));
         let future = circuit_breaker.call(future);
-        match runtime.block_on(future) {
+        match future.await {
             Err(Error::Rejected) => {}
             err => unreachable!("{:?}", err),
         }
         assert_eq!(false, circuit_breaker.is_call_permitted());
     }
 
-    #[test]
-    fn call_with() {
-        let mut runtime = Runtime::new().unwrap();
+    #[tokio::test]
+    async fn call_with() {
         let circuit_breaker = new_circuit_breaker();
         let is_err = |err: &bool| !(*err);
 
         for _ in 0..2 {
-            let future = future::lazy(|| Err::<(), _>(true));
+            let future = future::err::<(), _>(true);
             let future = circuit_breaker.call_with(is_err, future);
-            match runtime.block_on(future) {
+            match future.await {
                 Err(Error::Inner(true)) => {}
                 err => unreachable!("{:?}", err),
             }
             assert_eq!(true, circuit_breaker.is_call_permitted());
         }
 
-        let future = future::lazy(|| Err::<(), _>(false));
+        let future = future::err::<(), _>(false);
         let future = circuit_breaker.call_with(is_err, future);
-        match runtime.block_on(future) {
+        match future.await {
             Err(Error::Inner(false)) => {}
             err => unreachable!("{:?}", err),
         }
@@ -234,5 +236,10 @@ mod tests {
         let backoff = backoff::constant(Duration::from_secs(5));
         let policy = failure_policy::consecutive_failures(1, backoff);
         Config::new().failure_policy(policy).build()
+    }
+
+    async fn delay_for(duration: Duration) -> Result<(), ()> {
+        tokio::time::delay_for(duration).await;
+        Ok(())
     }
 }

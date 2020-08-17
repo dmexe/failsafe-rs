@@ -5,8 +5,8 @@
 [![CircleCI](https://circleci.com/gh/dmexe/failsafe-rs.svg?style=svg)](https://circleci.com/gh/dmexe/failsafe-rs)
 [![Appveyor](https://ci.appveyor.com/api/projects/status/c0qrj9dbskneunjg/branch/master?svg=true)](https://ci.appveyor.com/project/dmexe/failsafe-rs/branch/master)
 
-A circuit breaker implementation which used to detect failures and encapsulates the logic of preventing a 
-failure from constantly recurring, during maintenance, temporary external system failure or unexpected 
+A circuit breaker implementation which used to detect failures and encapsulates the logic of preventing a
+failure from constantly recurring, during maintenance, temporary external system failure or unexpected
 system difficulties.
 
 * [https://martinfowler.com/bliki/CircuitBreaker.html](https://martinfowler.com/bliki/CircuitBreaker.html)
@@ -14,23 +14,18 @@ system difficulties.
 
 # Features
 
-* Working with both `Fn() -> Result` and `Future`.
+* Working with both `Fn() -> Result` and `Future` (optional via default
+  `futures-support` feature).
 * Backoff strategies: `constant`, `exponential`, `equal_jittered`, `full_jittered`
 * Failure detection policies: `consecutive_failures`, `success_rate_over_time_window`
-* Minimum rust version: 1.27
+* Minimum rust version: 1.39
 
 # Usage
 
 Add this to your Cargo.toml:
 
 ```toml
-failsafe = "0.2.0"
-```
-
-and this to your crate root:
-
-```rust
-extern crate failsafe;
+failsafe = "0.3.1"
 ```
 
 # Example

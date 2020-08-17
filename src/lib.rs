@@ -79,6 +79,7 @@ mod windowed_adder;
 
 pub mod backoff;
 pub mod failure_policy;
+#[cfg(feature = "futures-support")]
 pub mod futures;
 
 #[doc(hidden)]

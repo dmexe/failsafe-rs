@@ -1,8 +1,13 @@
 ### Unreleased
 
+Breaking changes:
 * use rust 2018 edition
+* use `std::future::Future` and `futures==0.3`, supporting `async`/`await`
+* minimum rust version is 1.39.0
+
+Improvements:
 * drop `spin` dependency, use `parking_lot`
-* minimum rust version is 1.33.0
+* add `futures-support` feature, to allow opt-out for `futures` support
 
 ### 0.3.1
 

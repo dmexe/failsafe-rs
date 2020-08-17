@@ -223,8 +223,8 @@ fn exponential_backoff_seconds(attempt: u32, base: Duration, max: Duration) -> u
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::prng::XorShiftRng;
     use rand::{RngCore, SeedableRng};
+    use rand_xorshift::XorShiftRng;
 
     const SEED: &'static [u8; 16] = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 8, 7, 6, 5, 4, 3, 2];
     struct TestGenRage<T>(T);
