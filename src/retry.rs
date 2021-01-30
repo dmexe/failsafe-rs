@@ -1,14 +1,13 @@
 use super::error::Error;
 
 pub struct Retry {
-    max_attempts: u32
+    max_attempts: u32,
 }
 
-impl Retry
-{
+impl Retry {
     fn call<F, E, R>(&self, mut f: F) -> Result<R, Error<E>>
-        where
-            F: FnMut() -> Result<R, E>,
+    where
+        F: FnMut() -> Result<R, E>,
     {
         for _ in 0..(self.max_attempts) {
             match f() {
@@ -29,9 +28,7 @@ mod tests {
     #[test]
     fn call_success() {
         let retry = new_retry();
-        let closure = || -> Result<i32, ()>{
-            Ok(0)
-        };
+        let closure = || -> Result<i32, ()> { Ok(0) };
         assert_eq!(0, retry.call(closure).expect("Expect success"));
     }
 
@@ -62,9 +59,11 @@ mod tests {
                 Err("fail")
             }
         };
-        assert_eq!(Error::Rejected, retry.call(closure).expect_err("Expected error"));
+        assert_eq!(
+            Error::Rejected,
+            retry.call(closure).expect_err("Expected error")
+        );
     }
-
 
     fn new_retry() -> Retry {
         Retry { max_attempts: 3 }
