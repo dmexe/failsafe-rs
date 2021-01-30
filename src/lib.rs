@@ -69,6 +69,7 @@
 #![cfg_attr(test, deny(warnings))]
 
 mod circuit_breaker;
+mod retry;
 mod config;
 mod ema;
 mod error;

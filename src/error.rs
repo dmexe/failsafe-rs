@@ -2,7 +2,7 @@ use std::error::Error as StdError;
 use std::fmt::{self, Display};
 
 /// A `CircuitBreaker`'s error.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Error<E> {
     /// An error from inner call.
     Inner(E),
