@@ -1,3 +1,8 @@
+### Unreleased
+
+Fixes:
+* fix `FullJittered` implementation: the exponential behavior was not being applied
+
 ### 1.0.0
 
 Breaking changes:
