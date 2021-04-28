@@ -165,9 +165,8 @@ impl<R: GenRange> Iterator for FullJittered<R> {
     type Item = Duration;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let seconds = self
-            .rng
-            .gen_range(self.start.as_secs(), self.max.as_secs() + 1);
+        let exp = exponential_backoff_seconds(self.attempt, self.start, self.max);
+        let seconds = self.rng.gen_range(0, exp + 1);
 
         if self.attempt < MAX_RETRIES {
             self.attempt += 1;
@@ -253,11 +252,11 @@ mod tests {
 
     #[test]
     fn full_jittered_growth() {
-        let backoff = full_jittered(Duration::from_secs(10), Duration::from_secs(100))
+        let backoff = full_jittered(Duration::from_secs(10), Duration::from_secs(300))
             .with_rng(TestGenRage::default());
 
         let actual = backoff.take(10).map(|it| it.as_secs()).collect::<Vec<_>>();
-        let expected = vec![26, 13, 69, 32, 61, 69, 55, 46, 92, 22];
+        let expected = vec![0, 0, 33, 53, 80, 6, 132, 121, 234, 79];
         assert_eq!(expected, actual);
     }
 
