@@ -39,11 +39,11 @@ default_steps: &default_steps
         paths:
           - "/home/circleci/.cargo"
 jobs:
-  rust_1_39_0:
+  rust_1_40_0:
     <<: *default_env
     <<: *default_steps
     docker:
-    - image: "circleci/rust:1.39.0"
+    - image: "circleci/rust:1.40.0"
 
   rust_stable:
     <<: *default_env
@@ -61,7 +61,7 @@ workflows:
   version: 2
   commit:
     jobs:
-    - rust_1_39_0
+    - rust_1_40_0
     - rust_stable
     - rust_nightly
   nightly:
