@@ -1,7 +1,10 @@
-### Unreleased
+### 1.0.1
 
 Fixes:
 * fix `FullJittered` implementation: the exponential behavior was not being applied
+
+Updates:
+* `pin_project` and `rand` has been updated to the latest version
 
 ### 1.0.0
 

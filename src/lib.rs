@@ -18,7 +18,7 @@
 //!
 //! // A function that sometimes failed.
 //! fn dangerous_call() -> Result<(), ()> {
-//!   if thread_rng().gen_range(0, 2) == 0 {
+//!   if thread_rng().gen_range(0..2) == 0 {
 //!     return Err(())
 //!   }
 //!   Ok(())
