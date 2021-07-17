@@ -7,7 +7,7 @@ Updates:
 * `pin_project` and `rand` has been updated to the latest version
 
 Breaking changes:
-* minimum rust version is 1.42.0
+* minimum rust version is 1.45.0
 
 ### 1.0.0
 
