@@ -1,7 +1,13 @@
-### Unreleased
+### 1.1.0
 
 Fixes:
 * fix `FullJittered` implementation: the exponential behavior was not being applied
+
+Updates:
+* `pin_project` and `rand` has been updated to the latest version
+
+Breaking changes:
+* minimum rust version is 1.45.0
 
 ### 1.0.0
 

@@ -107,7 +107,7 @@ impl GenRange for ThreadLocalGenRange {
     #[inline]
     fn gen_range(&mut self, low: u64, high: u64) -> u64 {
         use rand::Rng;
-        thread_rng().gen_range(low, high)
+        thread_rng().gen_range(low..high)
     }
 }
 
@@ -237,7 +237,7 @@ mod tests {
     impl<T: RngCore> GenRange for TestGenRage<T> {
         fn gen_range(&mut self, low: u64, high: u64) -> u64 {
             use rand::Rng;
-            self.0.gen_range(low, high)
+            self.0.gen_range(low..high)
         }
     }
 

@@ -7,12 +7,13 @@ use futures::{
     stream::{self, StreamExt, TryStreamExt},
     FutureExt,
 };
+use tokio::runtime::Runtime;
 
 use failsafe::{futures::CircuitBreaker, Config, Error};
 
 fn multi_threaded_in_batch(c: &mut Criterion) {
     let circuit_breaker = Config::new().build();
-    let runtime = RefCell::new(tokio::runtime::Runtime::new().unwrap());
+    let runtime = RefCell::new(Runtime::new().unwrap());
     let batch_size = 10;
 
     c.bench_function("multi_threaded_in_batch", |b| {
@@ -33,7 +34,7 @@ fn multi_threaded_in_batch(c: &mut Criterion) {
                 .buffer_unordered(batch_size)
                 .try_collect();
 
-            let mut runtime = runtime.borrow_mut();
+            let runtime = runtime.borrow_mut();
             let res: Vec<_> = runtime.block_on(batch).unwrap();
             assert_eq!(45usize, res.iter().sum::<usize>());
         })

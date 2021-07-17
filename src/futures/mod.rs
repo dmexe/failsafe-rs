@@ -15,7 +15,7 @@
 //!
 //! // A function that sometimes fails.
 //! async fn dangerous_call() -> Result<(), ()> {
-//!   if thread_rng().gen_range(0, 2) == 0 {
+//!   if thread_rng().gen_range(0..2) == 0 {
 //!     return Err(())
 //!   }
 //!   Ok(())
@@ -239,7 +239,7 @@ mod tests {
     }
 
     async fn delay_for(duration: Duration) -> Result<(), ()> {
-        tokio::time::delay_for(duration).await;
+        tokio::time::sleep(duration).await;
         Ok(())
     }
 }
