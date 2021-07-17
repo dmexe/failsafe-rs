@@ -2,12 +2,12 @@
 
 use std::cell::RefCell;
 
-use tokio::runtime::Runtime;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use futures::{
     stream::{self, StreamExt, TryStreamExt},
     FutureExt,
 };
+use tokio::runtime::Runtime;
 
 use failsafe::{futures::CircuitBreaker, Config, Error};
 
