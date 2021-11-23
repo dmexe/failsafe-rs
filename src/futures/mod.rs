@@ -5,7 +5,6 @@
 //! Using default backoff strategy and failure accrual policy.
 //!
 //! ```
-//! # extern crate failsafe;
 //! # extern crate rand;
 //! # use rand::{thread_rng, Rng};
 //! # async {
