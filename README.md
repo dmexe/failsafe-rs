@@ -18,7 +18,7 @@ system difficulties.
   `futures-support` feature).
 * Backoff strategies: `constant`, `exponential`, `equal_jittered`, `full_jittered`
 * Failure detection policies: `consecutive_failures`, `success_rate_over_time_window`
-* Minimum rust version: 1.45
+* Minimum rust version: 1.49
 
 # Usage
 
