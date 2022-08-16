@@ -8,11 +8,6 @@ NC='\033[0m' # No Color
 
 CARGO=${CARGO:-cargo}
 
-function cargo_run() {
-  echo -e "${GREEN}${CARGO} $@${NC}"
-  ${CARGO} $@
-}
-
 function rust_add_component() {
   local name=$1
 
@@ -22,13 +17,13 @@ function rust_add_component() {
 
 # cargo fmt
 rust_add_component rustfmt-preview
-cargo_run fmt -- --version
-cargo_run fmt -- --check
+${CARGO} fmt -- --version
+${CARGO} fmt -- --check
 
 echo
 
 rust_add_component clippy-preview
-cargo_run clippy --version
-cargo_run clippy
+${CARGO} clippy --version
+${CARGO} clippy -- -Dwarnings
 
 echo -e "${YELLOW}OK${NC}"
