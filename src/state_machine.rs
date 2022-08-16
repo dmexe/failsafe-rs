@@ -169,12 +169,12 @@ where
             State::HalfOpen(_) => {
                 shared.transit_to_closed();
                 self.inner.instrument.on_closed();
-            },
+            }
             State::Open(_, _) => {
                 shared.transit_to_closed();
                 self.inner.instrument.on_closed();
-            },
-            _ => {},
+            }
+            _ => {}
         }
     }
 
