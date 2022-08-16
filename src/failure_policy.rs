@@ -72,7 +72,7 @@ where
     BACKOFF: Iterator<Item = Duration> + Clone,
 {
     assert!(
-        required_success_rate >= 0.0 && required_success_rate <= 1.0,
+        (0.0..=1.0).contains(&required_success_rate)
         "required_success_rate must be [0, 1]: {}",
         required_success_rate
     );
