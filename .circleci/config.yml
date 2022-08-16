@@ -33,7 +33,10 @@ default_steps: &default_steps
         command: ${CARGO} test ${CARGO_ARGS} -- --nocapture
     - run:
         name: "Bench"
-        command: ${CARGO} bench ${CARGO_ARGS}
+        command: |
+          if [ "$CIRCLE_JOB" == "rust_stable" ]; then
+            ${CARGO} bench ${CARGO_ARGS}
+          fi
     - save_cache:
         key: cache-v4-{{ checksum "/home/circleci/.cache-key" }}-{{ checksum "./Cargo.toml" }}
         paths:
