@@ -43,13 +43,13 @@ jobs:
     <<: *default_env
     <<: *default_steps
     docker:
-    - image: "circleci/rust:1.49.0"
+    - image: "cimg/rust:1.49"
 
   rust_stable:
     <<: *default_env
     <<: *default_steps
     docker:
-    - image: "circleci/rust:1.63.0"
+    - image: "rustlang/rust:1.63"
 
   rust_nightly:
     <<: *default_env
