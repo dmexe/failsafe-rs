@@ -1,5 +1,8 @@
 ### [Unreleased]
 
+Breaking changes:
+* minimum rust version is 1.49
+
 Updates:
 * `pin_project` has been updated to `0.12`
 * `criterion` has been updated to `0.3.6`
