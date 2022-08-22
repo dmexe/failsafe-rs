@@ -1,5 +1,10 @@
 ### [Unreleased]
 
+### [1.2.0] - 2022-08-22
+
+Added:
+* the `reset` method to the `StateMachine`, (thanks to https://github.com/eg-fxia)
+
 Breaking changes:
 * minimum rust version is 1.49
 
@@ -53,7 +58,8 @@ Improvements:
 * remove `tokio-timer` dependency.
 * use spin lock instead `std::sync::Mutex`
 
-[Unreleased]: https://github.com/dmexe/failsafe-rs/compare/v1.1.0...master
+[Unreleased]: https://github.com/dmexe/failsafe-rs/compare/v1.2.0...master
+[1.2.0]: https://github.com/dmexe/failsafe-rs/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/dmexe/failsafe-rs/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/dmexe/failsafe-rs/compare/v0.3.1...v1.0.0
 [0.3.1]: https://github.com/dmexe/failsafe-rs/compare/v0.3.0...v0.3.1
