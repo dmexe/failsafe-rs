@@ -10,7 +10,7 @@ failure from constantly recurring, during maintenance, temporary external system
 system difficulties.
 
 * [https://martinfowler.com/bliki/CircuitBreaker.html](https://martinfowler.com/bliki/CircuitBreaker.html)
-* [Read documentation](https://docs.rs/failsafe/1.1.0/failsafe)
+* [Read documentation](https://docs.rs/failsafe/1.2.0/failsafe)
 
 # Features
 
@@ -25,7 +25,7 @@ system difficulties.
 Add this to your Cargo.toml:
 
 ```toml
-failsafe = "1.1.0"
+failsafe = "1.2.0"
 ```
 
 # Example
