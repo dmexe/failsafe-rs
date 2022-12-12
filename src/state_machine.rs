@@ -161,6 +161,23 @@ where
         res
     }
 
+    /// Reset state machine to Closed
+    ///
+    pub fn reset(&self) {
+        let mut shared = self.inner.shared.lock();
+        match shared.state {
+            State::HalfOpen(_) => {
+                shared.transit_to_closed();
+                self.inner.instrument.on_closed();
+            }
+            State::Open(_, _) => {
+                shared.transit_to_closed();
+                self.inner.instrument.on_closed();
+            }
+            _ => {}
+        }
+    }
+
     /// Records a successful call.
     ///
     /// This method must be invoked when a call was success.
@@ -296,6 +313,16 @@ mod tests {
                 assert_eq!(true, state_machine.is_call_permitted());
                 state_machine.on_success();
             }
+
+            // Perform failed request and transit back to open state
+            for _i in 0..3 {
+                state_machine.on_error();
+            }
+            assert_eq!(true, observe.is_open());
+
+            // Reset state machine
+            state_machine.reset();
+            assert_eq!(true, observe.is_closed());
         });
     }
 

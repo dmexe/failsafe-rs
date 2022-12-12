@@ -1,6 +1,6 @@
 [package]
 name = "failsafe"
-version = "1.1.0"
+version = "1.2.0"
 authors = ["Dmitry Galinsky <dima.exe@gmail.com>"]
 description = "A circuit breaker implementation"
 license = "MIT"
@@ -15,8 +15,8 @@ parking_lot = "0.12"
 
 [dev-dependencies]
 futures = { version = "0.3", features = ["std"] }
-tokio = { version = "1.8", features = ["rt", "rt-multi-thread", "macros", "time"] }
-criterion = { version = "0.3.4", features = ["html_reports"] }
+tokio = { version = "1.20", features = ["rt", "rt-multi-thread", "macros", "time"] }
+criterion = { version = "0.3.6", features = ["html_reports"] }
 rand_xorshift = "0.3"
 
 [features]
