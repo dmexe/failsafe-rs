@@ -43,6 +43,8 @@ use super::failure_predicate::{self, FailurePredicate};
 use super::instrument::Instrument;
 use super::state_machine::StateMachine;
 
+pub mod stream;
+
 /// A futures aware circuit breaker's public interface.
 pub trait CircuitBreaker {
     #[doc(hidden)]
