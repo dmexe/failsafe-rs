@@ -14,6 +14,7 @@ where
     }
 }
 
+/// the Any predicate always returns true
 #[derive(Debug, Copy, Clone)]
 pub struct Any;
 
