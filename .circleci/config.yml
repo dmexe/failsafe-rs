@@ -52,7 +52,7 @@ jobs:
     <<: *default_env
     <<: *default_steps
     docker:
-    - image: "cimg/rust:1.62"
+    - image: "cimg/rust:1.79"
 
   rust_nightly:
     <<: *default_env
