@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use failsafe::{backoff, clock, failure_policy, StateMachine};
 
+#[allow(clippy::unit_arg)]
 fn consecutive_failures_policy(c: &mut Criterion) {
     let backoff = backoff::constant(Duration::from_secs(5));
     let policy = failure_policy::consecutive_failures(3, backoff);
@@ -19,6 +20,7 @@ fn consecutive_failures_policy(c: &mut Criterion) {
     });
 }
 
+#[allow(clippy::unit_arg)]
 fn success_rate_over_time_window_policy(c: &mut Criterion) {
     let backoff = backoff::constant(Duration::from_secs(5));
     let policy =

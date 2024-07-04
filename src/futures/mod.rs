@@ -183,7 +183,7 @@ mod tests {
         let future = circuit_breaker.call(future);
 
         future.await.unwrap();
-        assert_eq!(true, circuit_breaker.is_call_permitted());
+        assert!(circuit_breaker.is_call_permitted());
     }
 
     #[tokio::test]
@@ -196,7 +196,7 @@ mod tests {
             Err(Error::Inner(_)) => {}
             err => unreachable!("{:?}", err),
         }
-        assert_eq!(false, circuit_breaker.is_call_permitted());
+        assert!(!circuit_breaker.is_call_permitted());
 
         let future = delay_for(Duration::from_secs(1));
         let future = circuit_breaker.call(future);
@@ -204,7 +204,7 @@ mod tests {
             Err(Error::Rejected) => {}
             err => unreachable!("{:?}", err),
         }
-        assert_eq!(false, circuit_breaker.is_call_permitted());
+        assert!(!circuit_breaker.is_call_permitted());
     }
 
     #[tokio::test]
@@ -219,7 +219,7 @@ mod tests {
                 Err(Error::Inner(true)) => {}
                 err => unreachable!("{:?}", err),
             }
-            assert_eq!(true, circuit_breaker.is_call_permitted());
+            assert!(circuit_breaker.is_call_permitted());
         }
 
         let future = future::err::<(), _>(false);
@@ -228,7 +228,7 @@ mod tests {
             Err(Error::Inner(false)) => {}
             err => unreachable!("{:?}", err),
         }
-        assert_eq!(false, circuit_breaker.is_call_permitted());
+        assert!(!circuit_breaker.is_call_permitted());
     }
 
     fn new_circuit_breaker() -> impl CircuitBreaker {

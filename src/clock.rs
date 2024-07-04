@@ -1,7 +1,7 @@
 use std::cell::Cell;
 use std::time::{Duration, Instant};
 
-thread_local!(static CLOCK: Cell<Option<*const MockClock>> = Cell::new(None));
+thread_local!(static CLOCK: Cell<Option<*const MockClock>> = const { Cell::new(None) });
 
 #[derive(Debug)]
 pub struct MockClock(Instant);
