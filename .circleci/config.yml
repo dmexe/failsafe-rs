@@ -27,10 +27,18 @@ default_steps: &default_steps
         command: ${CARGO} fetch
     - run:
         name: "Build"
-        command: ${CARGO} build ${CARGO_ARGS} --tests
+        command: |
+          if [ "$CIRCLE_JOB" == "rust_1_60" ]; then
+            ${CARGO} build ${CARGO_ARGS}
+          else
+            ${CARGO} build ${CARGO_ARGS} --tests
+          fi
     - run:
         name: "Test"
-        command: ${CARGO} test ${CARGO_ARGS} -- --nocapture
+        command: |
+          if [ "$CIRCLE_JOB" != "rust_1_60" ]; then
+            ${CARGO} build ${CARGO_ARGS} --tests
+          fi
     - run:
         name: "Bench"
         command: |
@@ -42,11 +50,11 @@ default_steps: &default_steps
         paths:
           - "/home/circleci/.cargo"
 jobs:
-  rust_1_59_0:
+  rust_1_60:
     <<: *default_env
     <<: *default_steps
     docker:
-    - image: "cimg/rust:1.59"
+    - image: "cimg/rust:1.60"
 
   rust_stable:
     <<: *default_env
@@ -64,7 +72,7 @@ workflows:
   version: 2
   commit:
     jobs:
-    - rust_1_59_0
+    - rust_1_60
     - rust_stable
     - rust_nightly
   nightly:

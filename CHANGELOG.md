@@ -1,5 +1,11 @@
 ### [Unreleased]
 
+Breaking changes:
+* minimum rust version is 1.60
+
+Improvements:
+* drop `pin-project` dependency, use `pin-project-lite` instead
+
 ### [1.3.0] - 2024-05-05
 
 Added:
@@ -20,14 +26,13 @@ Updates:
 * `pin_project` has been updated to `0.12`
 * `criterion` has been updated to `0.3.6`
 
-
 ### [1.1.0] - 2021-09-18
 
 Fixes:
 * fix `FullJittered` implementation: the exponential behavior was not being applied
 
 Updates:
-* `pin_project` and `rand` has been updated to the latest version
+* `pin_project` and `rand` has been updated to the latest versions
 
 Breaking changes:
 * minimum rust version is 1.45.0
@@ -74,3 +79,4 @@ Improvements:
 [0.3.1]: https://github.com/dmexe/failsafe-rs/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/dmexe/failsafe-rs/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/dmexe/failsafe-rs/releases/tag/v0.2.0
+

@@ -35,7 +35,6 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use futures_core::future::TryFuture;
-use pin_project::pin_project;
 
 use super::error::Error;
 use super::failure_policy::FailurePolicy;
@@ -118,15 +117,16 @@ where
     }
 }
 
-/// A circuit breaker's future.
-#[allow(missing_debug_implementations)]
-#[pin_project]
-pub struct ResponseFuture<FUTURE, POLICY, INSTRUMENT, PREDICATE> {
-    #[pin]
-    future: FUTURE,
-    state_machine: StateMachine<POLICY, INSTRUMENT>,
-    predicate: PREDICATE,
-    ask: bool,
+pin_project_lite::pin_project! {
+    /// A circuit breaker's future.
+    #[allow(missing_debug_implementations)]
+    pub struct ResponseFuture<FUTURE, POLICY, INSTRUMENT, PREDICATE> {
+        #[pin]
+        future: FUTURE,
+        state_machine: StateMachine<POLICY, INSTRUMENT>,
+        predicate: PREDICATE,
+        ask: bool,
+    }
 }
 
 impl<FUTURE, POLICY, INSTRUMENT, PREDICATE> Future
