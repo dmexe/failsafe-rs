@@ -88,14 +88,14 @@ mod tests {
                 Err(Error::Inner(true)) => {}
                 x => unreachable!("{:?}", x),
             }
-            assert_eq!(true, circuit_breaker.is_call_permitted());
+            assert!(circuit_breaker.is_call_permitted());
         }
 
         match circuit_breaker.call_with(is_err, || Err::<(), _>(false)) {
             Err(Error::Inner(false)) => {}
             x => unreachable!("{:?}", x),
         }
-        assert_eq!(false, circuit_breaker.is_call_permitted());
+        assert!(!circuit_breaker.is_call_permitted());
     }
 
     #[test]
@@ -103,7 +103,7 @@ mod tests {
         let circuit_breaker = new_circuit_breaker();
 
         circuit_breaker.call(|| Ok::<_, ()>(())).unwrap();
-        assert_eq!(true, circuit_breaker.is_call_permitted());
+        assert!(circuit_breaker.is_call_permitted());
     }
 
     #[test]
@@ -114,13 +114,13 @@ mod tests {
             Err(Error::Inner(())) => {}
             x => unreachable!("{:?}", x),
         }
-        assert_eq!(false, circuit_breaker.is_call_permitted());
+        assert!(!circuit_breaker.is_call_permitted());
 
         match circuit_breaker.call(|| Err::<(), _>(())) {
             Err(Error::Rejected) => {}
             x => unreachable!("{:?}", x),
         }
-        assert_eq!(false, circuit_breaker.is_call_permitted());
+        assert!(!circuit_breaker.is_call_permitted());
     }
 
     fn new_circuit_breaker() -> impl CircuitBreaker {

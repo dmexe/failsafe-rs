@@ -249,68 +249,68 @@ mod tests {
             let policy = consecutive_failures(3, backoff);
             let state_machine = StateMachine::new(policy, observe.clone());
 
-            assert_eq!(true, state_machine.is_call_permitted());
+            assert!(state_machine.is_call_permitted());
 
             // Perform success requests. the circuit breaker must be closed.
             for _i in 0..10 {
-                assert_eq!(true, state_machine.is_call_permitted());
+                assert!(state_machine.is_call_permitted());
                 state_machine.on_success();
-                assert_eq!(true, observe.is_closed());
+                assert!(observe.is_closed());
             }
 
             // Perform failed requests, the circuit breaker still closed.
             for _i in 0..2 {
-                assert_eq!(true, state_machine.is_call_permitted());
+                assert!(state_machine.is_call_permitted());
                 state_machine.on_error();
-                assert_eq!(true, observe.is_closed());
+                assert!(observe.is_closed());
             }
 
             // Perform a failed request and transit to the open state for 5s.
-            assert_eq!(true, state_machine.is_call_permitted());
+            assert!(state_machine.is_call_permitted());
             state_machine.on_error();
-            assert_eq!(true, observe.is_open());
+            assert!(observe.is_open());
 
             // Reject call attempts, the circuit breaker in open state.
             for i in 0..10 {
-                assert_eq!(false, state_machine.is_call_permitted());
+                assert!(!state_machine.is_call_permitted());
                 assert_eq!(i + 1, observe.rejected_calls());
             }
 
             // Wait 2s, the circuit breaker still open.
             time.advance(2.seconds());
-            assert_eq!(false, state_machine.is_call_permitted());
-            assert_eq!(true, observe.is_open());
+            assert!(!state_machine.is_call_permitted());
+            assert!(observe.is_open());
 
             clock::now();
 
             // Wait 4s (6s total), the circuit breaker now in the half open state.
             time.advance(4.seconds());
-            assert_eq!(true, state_machine.is_call_permitted());
-            assert_eq!(true, observe.is_half_open());
+            assert!(state_machine.is_call_permitted());
+            assert!(observe.is_half_open());
 
             // Perform a failed request and transit back to the open state for 10s.
             state_machine.on_error();
-            assert_eq!(false, state_machine.is_call_permitted());
-            assert_eq!(true, observe.is_open());
+            assert!(!state_machine.is_call_permitted());
+            assert!(observe.is_open());
 
             // Wait 5s, the circuit breaker still open.
             time.advance(5.seconds());
-            assert_eq!(false, state_machine.is_call_permitted());
-            assert_eq!(true, observe.is_open());
+            assert!(!state_machine.is_call_permitted());
+            assert!(observe.is_open());
 
             // Wait 6s (11s total), the circuit breaker now in the half open state.
             time.advance(6.seconds());
-            assert_eq!(true, state_machine.is_call_permitted());
-            assert_eq!(true, observe.is_half_open());
+            assert!(state_machine.is_call_permitted());
+            assert!(observe.is_half_open());
 
             // Perform a success request and transit to the closed state.
             state_machine.on_success();
-            assert_eq!(true, state_machine.is_call_permitted());
-            assert_eq!(true, observe.is_closed());
+            assert!(state_machine.is_call_permitted());
+            assert!(observe.is_closed());
 
             // Perform success requests.
             for _i in 0..10 {
-                assert_eq!(true, state_machine.is_call_permitted());
+                assert!(state_machine.is_call_permitted());
                 state_machine.on_success();
             }
 
@@ -318,11 +318,11 @@ mod tests {
             for _i in 0..3 {
                 state_machine.on_error();
             }
-            assert_eq!(true, observe.is_open());
+            assert!(observe.is_open());
 
             // Reset state machine
             state_machine.reset();
-            assert_eq!(true, observe.is_closed());
+            assert!(observe.is_closed());
         });
     }
 
@@ -348,24 +348,15 @@ mod tests {
         }
 
         fn is_closed(&self) -> bool {
-            match *self.state.lock().unwrap() {
-                State::Closed => true,
-                _ => false,
-            }
+            matches!(*self.state.lock().unwrap(), State::Closed)
         }
 
         fn is_open(&self) -> bool {
-            match *self.state.lock().unwrap() {
-                State::Open => true,
-                _ => false,
-            }
+            matches!(*self.state.lock().unwrap(), State::Open)
         }
 
         fn is_half_open(&self) -> bool {
-            match *self.state.lock().unwrap() {
-                State::HalfOpen => true,
-                _ => false,
-            }
+            matches!(*self.state.lock().unwrap(), State::HalfOpen)
         }
 
         fn rejected_calls(&self) -> usize {
