@@ -2,18 +2,18 @@
 use std::task;
 
 use futures_core::Stream;
-use pin_project::pin_project;
 
 use crate::{failure_predicate, FailurePolicy, FailurePredicate, StateMachine};
 
-/// Stream that holds `StateMachine` and calls stream future
-#[pin_project]
-#[derive(Debug, Clone)]
-pub struct BreakerStream<S, P, Pol, Ins> {
-    breaker: StateMachine<Pol, Ins>,
-    #[pin]
-    stream: S,
-    predicate: P,
+pin_project_lite::pin_project! {
+    /// Stream that holds `StateMachine` and calls stream future
+    #[derive(Debug, Clone)]
+    pub struct BreakerStream<S, P, Pol, Ins> {
+        breaker: StateMachine<Pol, Ins>,
+        #[pin]
+        stream: S,
+        predicate: P,
+    }
 }
 
 impl<T, E, S, Pol, Ins> BreakerStream<S, failure_predicate::Any, Pol, Ins>
