@@ -1,5 +1,9 @@
 ### [Unreleased]
 
+Breaking changes:
+* minimum rust version is 1.59
+
+
 ### [1.2.0] - 2022-08-22
 
 Added:
