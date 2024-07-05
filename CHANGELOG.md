@@ -1,8 +1,12 @@
 ### [Unreleased]
 
+### [1.3.0] - 2024-05-05
+
+Added:
+* Implements circuit breaker for `futures::Stream` (thanks to https://github.com/leshow)
+
 Breaking changes:
 * minimum rust version is 1.59
-
 
 ### [1.2.0] - 2022-08-22
 
@@ -62,7 +66,8 @@ Improvements:
 * remove `tokio-timer` dependency.
 * use spin lock instead `std::sync::Mutex`
 
-[Unreleased]: https://github.com/dmexe/failsafe-rs/compare/v1.2.0...master
+[Unreleased]: https://github.com/dmexe/failsafe-rs/compare/v1.3.0...master
+[1.2.0]: https://github.com/dmexe/failsafe-rs/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/dmexe/failsafe-rs/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/dmexe/failsafe-rs/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/dmexe/failsafe-rs/compare/v0.3.1...v1.0.0
