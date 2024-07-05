@@ -89,7 +89,7 @@ pub use self::circuit_breaker::CircuitBreaker;
 pub use self::config::Config;
 pub use self::error::Error;
 pub use self::failure_policy::FailurePolicy;
-pub use self::failure_predicate::FailurePredicate;
+pub use self::failure_predicate::{Any, FailurePredicate};
 pub use self::instrument::Instrument;
 pub use self::state_machine::StateMachine;
 pub use self::windowed_adder::WindowedAdder;
