@@ -65,6 +65,12 @@ impl Ema {
         self.ema
     }
 
+    /// Returns the current EMA value (synonym for `last()`)
+    #[allow(dead_code)]
+    pub fn get_ema_success_rate(&self) -> f64 {
+        self.ema
+    }
+
     /// Resets the average to 0 and erase all observations.
     pub fn reset(&mut self) {
         self.timestamp = 0;

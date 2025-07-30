@@ -49,6 +49,7 @@
 //! ```
 //! use std::time::Duration;
 //! use failsafe::{backoff, failure_policy, Config, CircuitBreaker};
+//! use failsafe::ema::Ema;
 //!
 //! fn circuit_breaker() -> impl CircuitBreaker {
 //!   // Create an exponential growth backoff which starts from 10s and ends with 60s.
@@ -70,7 +71,6 @@
 
 mod circuit_breaker;
 mod config;
-mod ema;
 mod error;
 mod failure_predicate;
 mod instrument;
@@ -78,6 +78,8 @@ mod state_machine;
 mod windowed_adder;
 
 pub mod backoff;
+/// Exponential Moving Average implementation for success rate tracking
+pub mod ema;
 pub mod failure_policy;
 #[cfg(feature = "futures-support")]
 pub mod futures;
